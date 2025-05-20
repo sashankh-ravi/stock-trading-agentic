@@ -1,3 +1,7 @@
+<!-- Math formulas enabled for proper rendering -->
+
+<!-- MathJax enabled for formula rendering -->
+
 # Nifty 500 Trading System: A Comprehensive Analysis
 
 ## Executive Summary
@@ -212,18 +216,18 @@ def _detect_candlestick_patterns(self, open_prices, high_prices, low_prices, clo
     
     # Check bullish patterns
     for pattern_name, weight in self.bullish_patterns.items():
-        pattern_func = getattr(talib, pattern_name)
-        result = pattern_func(open_prices, high_prices, low_prices, close_prices)
-        if result[-1] > 0:  # Bullish pattern
-            patterns[pattern_name] = weight / 100.0
-            
+    pattern_func = getattr(talib, pattern_name)
+    result = pattern_func(open_prices, high_prices, low_prices, close_prices)
+    if result[-1] > 0:  # Bullish pattern
+    patterns[pattern_name] = weight / 100.0
+    
     # Check bearish patterns
     for pattern_name, weight in self.bearish_patterns.items():
-        pattern_func = getattr(talib, pattern_name)
-        result = pattern_func(open_prices, high_prices, low_prices, close_prices)
-        if result[-1] < 0:  # Bearish pattern
-            patterns[pattern_name] = -weight / 100.0
-            
+    pattern_func = getattr(talib, pattern_name)
+    result = pattern_func(open_prices, high_prices, low_prices, close_prices)
+    if result[-1] < 0:  # Bearish pattern
+    patterns[pattern_name] = -weight / 100.0
+    
     return patterns
 ```
 
@@ -298,7 +302,9 @@ When strategies generate conflicting signals, resolution occurs through:
 
 **Calculation:**
 
+
 $$CCI = \frac{\text{Typical Price} - \text{SMA of Typical Price}}{0.015 \times \text{Mean Deviation}}$$
+
 
 Where:
     - Typical Price = (High + Low + Close) / 3
@@ -325,7 +331,9 @@ The trading system uses CCI for identifying potential price reversals and confir
 
 **Calculation:**
 
+
 $$\text{Williams \%R} = \frac{\text{Highest High} - \text{Close}}{\text{Highest High} - \text{Lowest Low}} \times -100$$
+
 
 **Interpretation:**
     - Ranges from 0 to -100
@@ -355,11 +363,15 @@ The system incorporates Williams %R with adaptive thresholds that adjust based o
 
 This can be expressed mathematically as:
 
+
 $$\text{MFI} = 100 - \frac{100}{1 + \text{Money Ratio}}$$
+
 
 Where:
 
+
 $$\text{Money Ratio} = \frac{\sum_{i=1}^{14} \text{Positive Money Flow}_i}{\sum_{i=1}^{14} \text{Negative Money Flow}_i}$$
+
 
 **Interpretation:**
     - Ranges from 0 to 100
@@ -396,13 +408,21 @@ The system uses MFI as a volume-weighted momentum indicator to confirm price mov
 
 This can be expressed mathematically as:
 
+
 $$+\text{DI} = 100 \times \frac{\text{Smoothed }+\text{DM}}{\text{Smoothed TR}}$$
+
+
 
 $$-\text{DI} = 100 \times \frac{\text{Smoothed }-\text{DM}}{\text{Smoothed TR}}$$
 
+
+
 $$\text{DX} = 100 \times \frac{|+\text{DI} - (-\text{DI})|}{|+\text{DI} + (-\text{DI})|}$$
 
+
+
 $$\text{ADX} = \text{SMA}_{14}(\text{DX})$$
+
 
 **Interpretation:**
     - ADX measures trend strength (regardless of direction)
@@ -430,9 +450,15 @@ The system integrates DMI to determine both trend strength and direction. ADX is
 
 **Calculation:**
 
+
 $$\text{Middle Band} = \text{SMA}_{20}(\text{Price})$$
+
+
 $$\text{Upper Band} = \text{Middle Band} + (2 \times \sigma_{20}(\text{Price}))$$
+
+
 $$\text{Lower Band} = \text{Middle Band} - (2 \times \sigma_{20}(\text{Price}))$$
+
 
 Where:
 - SMA₂₀ = 20-day Simple Moving Average
@@ -467,9 +493,13 @@ The system uses Bollinger Bands for multiple purposes: volatility measurement, i
 
 This can be expressed mathematically as:
 
+
 $$\text{TR} = \max\left(\text{High} - \text{Low}, |\text{High} - \text{Close}_{\text{prev}}|, |\text{Low} - \text{Close}_{\text{prev}}|\right)$$
 
+
+
 $$\text{ATR} = \text{EMA}_{14}(\text{TR}) \text{ or } \text{SMA}_{14}(\text{TR})$$
+
 
 **Interpretation:**
     - Higher ATR values indicate higher volatility
@@ -499,9 +529,15 @@ ATR serves as the foundation for the system's risk management framework. It's us
 
 **Calculation:**
 
+
 $$\text{Middle Line} = \text{EMA}_{20}(\text{Price})$$
+
+
 $$\text{Upper Channel} = \text{Middle Line} + (2 \times \text{ATR}_{14})$$
+
+
 $$\text{Lower Channel} = \text{Middle Line} - (2 \times \text{ATR}_{14})$$
+
 
 Where:
 - EMA₂₀ = 20-day Exponential Moving Average
@@ -527,7 +563,9 @@ The system uses Keltner Channels alongside Bollinger Bands to confirm volatility
 
 **Calculation:**
 
+
 $$\text{Standard Deviation} = \sqrt{\frac{\sum_{i=1}^{n}(\text{Close}_i - \overline{\text{Close}})^2}{n}}$$
+
 
 Where:
 - n is the number of periods (typically 20)
@@ -565,6 +603,7 @@ The system employs rolling standard deviation calculations to:
 
 **Calculation:**
 
+
 $$
 \text{OBV}_t = 
 \begin{cases} 
@@ -573,6 +612,7 @@ $$
 \text{OBV}_{t-1} & \text{if } \text{Close}_t = \text{Close}_{t-1}
 \end{cases}
 $$
+
 
 **Interpretation:**
     - Rising OBV indicates buying pressure (positive)
@@ -621,11 +661,17 @@ The system constructs dynamic support and resistance levels based on Volume Prof
 
 This can be expressed mathematically as:
 
+
 $$\text{Money Flow Multiplier} = \frac{(\text{Close} - \text{Low}) - (\text{High} - \text{Close})}{\text{High} - \text{Low}}$$
+
+
 
 $$\text{Money Flow Volume} = \text{Money Flow Multiplier} \times \text{Volume}$$
 
+
+
 $$\text{CMF} = \frac{\sum_{i=1}^{21} \text{Money Flow Volume}_i}{\sum_{i=1}^{21} \text{Volume}_i}$$
+
 
 **Interpretation:**
     - Values above +0.1 indicate strong buying pressure
@@ -647,7 +693,9 @@ The system employs Chaikin Money Flow to assess the quality of price movements. 
 
 **Calculation:**
 
+
 $$\text{VWAP} = \frac{\sum(\text{Price} \times \text{Volume})}{\sum(\text{Volume})}$$
+
 
 **Interpretation:**
     - Price above VWAP indicates bullish intraday sentiment
@@ -733,7 +781,7 @@ def calculate_trend_strength(df, lookback=20):
     
     # Combine with appropriate weights
     tsi = (0.4 * ema_direction + 0.4 * adx_strength * 
-          np.sign(df['DI_PLUS'] - df['DI_MINUS']) + 0.2 * macd_signal)
+    np.sign(df['DI_PLUS'] - df['DI_MINUS']) + 0.2 * macd_signal)
     
     return tsi
 ```
@@ -779,8 +827,8 @@ def calculate_vqi(df, lookback=20):
     
     # Combine into volume quality
     vqi = (0.4 * np.sign(price_change) * np.sign(volume_relative - 1) +
-          0.4 * np.sign(obv_trend) +
-          0.2 * (1 - volume_std))  # Lower std = better quality
+    0.4 * np.sign(obv_trend) +
+    0.2 * (1 - volume_std))  # Lower std = better quality
     
     return vqi
 ```
@@ -815,8 +863,8 @@ def calculate_kelly_fraction(win_rate, win_loss_ratio, half_kelly=True):
     
     # Apply Half-Kelly for conservative sizing
     if half_kelly:
-        kelly = kelly / 2
-        
+    kelly = kelly / 2
+    
     # Constrain to reasonable bounds
     kelly = max(0, min(kelly, 0.25))
     
@@ -875,7 +923,6 @@ def calculate_adaptive_stop(price, atr, multiplier=2.0, min_pct=0.02, max_pct=0.
 
     atr_stop_pct = (atr * multiplier) / price
 
-    
     # Constrain to reasonable bounds
 
     stop_pct = max(min_pct, min(atr_stop_pct, max_pct))
@@ -896,7 +943,6 @@ def equity_defense_active(returns, lookback=20, threshold=-0.1):
     equity_curve = (1 + returns).cumprod()
     drawdown = equity_curve / equity_curve.cummax() - 1
 
-    
     # Calculate slope of equity curve
 
     slope = np.polyfit(range(lookback), equity_curve[-lookback:], 1)[0]
@@ -996,7 +1042,6 @@ def calculate_reward(pnl, drawdown, target_return, max_drawdown):
 
     dd_penalty = max(0, drawdown - max_drawdown) * 10
 
-    
     # Reward for achieving target return
 
     target_bonus = 1 if pnl >= target_return else 0
@@ -1055,10 +1100,10 @@ def objective_maximize_returns(params, constraint_risk=0.05):
     results = backtest_strategy(params)
     
     if results['max_drawdown'] > constraint_risk:
-        penalty = 10 * (results['max_drawdown'] - constraint_risk)
-        return results['monthly_return'] - penalty
+    penalty = 10 * (results['max_drawdown'] - constraint_risk)
+    return results['monthly_return'] - penalty
     else:
-        return results['monthly_return']
+    return results['monthly_return']
 
 ```
 
@@ -1070,10 +1115,10 @@ def objective_minimize_risk(params, target_return=0.15):
     results = backtest_strategy(params)
     
     if results['monthly_return'] < target_return:
-        penalty = 10 * (target_return - results['monthly_return'])
-        return results['max_drawdown'] + penalty
+    penalty = 10 * (target_return - results['monthly_return'])
+    return results['max_drawdown'] + penalty
     else:
-        return results['max_drawdown']
+    return results['max_drawdown']
 
 ```
 
@@ -1155,7 +1200,9 @@ def calculate_sharpe(returns, risk_free_rate=0.05, periods=252):
 
 The Sharpe ratio can be expressed mathematically as:
 
+
 $$\text{Sharpe Ratio} = \frac{(R_p - R_f) \times \sqrt{n}}{\sigma_p}$$
+
 
 Where:
 - $R_p$ is the portfolio return
@@ -1178,7 +1225,9 @@ def calculate_sortino(returns, risk_free_rate=0.05, periods=252):
 
 The Sortino ratio can be expressed mathematically as:
 
+
 $$\text{Sortino Ratio} = \frac{(R_p - R_f) \times \sqrt{n}}{\sigma_d}$$
+
 
 Where:
 - $R_p$ is the portfolio return
@@ -1200,7 +1249,9 @@ def calculate_calmar(returns, periods=252):
 
 The Calmar ratio can be expressed mathematically as:
 
+
 $$\text{Calmar Ratio} = \frac{\text{CAGR}}{\text{Maximum Drawdown}}$$
+
 
 Where:
 - CAGR is the Compound Annual Growth Rate
@@ -1343,11 +1394,11 @@ def classify_volatility_regime(returns, lookback=63):
     
     # Classify regime
     if vol_zscore.iloc[-1] > 1.0:
-        return "High Volatility"
+    return "High Volatility"
     elif vol_zscore.iloc[-1] < -1.0:
-        return "Low Volatility"
+    return "Low Volatility"
     else:
-        return "Normal Volatility"
+    return "Normal Volatility"
 
 ```
 
@@ -1374,20 +1425,20 @@ def classify_trend_regime(data, lookback=63):
     
     # Classify regime
     if adx > 25:
-        if ema_short.iloc[-1] > ema_medium.iloc[-1] > ema_long.iloc[-1]:
-            if ema_short_slope.iloc[-1] > 0:
-                return "Strong Uptrend"
-            else:
-                return "Weakening Uptrend"
-        elif ema_short.iloc[-1] < ema_medium.iloc[-1] < ema_long.iloc[-1]:
-            if ema_short_slope.iloc[-1] < 0:
-                return "Strong Downtrend"
-            else:
-                return "Weakening Downtrend"
-        else:
-            return "Mixed Trend"
+    if ema_short.iloc[-1] > ema_medium.iloc[-1] > ema_long.iloc[-1]:
+    if ema_short_slope.iloc[-1] > 0:
+    return "Strong Uptrend"
     else:
-        return "Ranging/Sideways"
+    return "Weakening Uptrend"
+    elif ema_short.iloc[-1] < ema_medium.iloc[-1] < ema_long.iloc[-1]:
+    if ema_short_slope.iloc[-1] < 0:
+    return "Strong Downtrend"
+    else:
+    return "Weakening Downtrend"
+    else:
+    return "Mixed Trend"
+    else:
+    return "Ranging/Sideways"
 
 ```
 
@@ -1403,13 +1454,12 @@ def classify_correlation_regime(returns_matrix):
     corr_matrix = returns_matrix.corr()
     avg_corr = (corr_matrix.sum().sum() - corr_matrix.shape[0]) / (corr_matrix.shape[0] * (corr_matrix.shape[0] - 1))
 
-    
     if avg_corr > 0.7:
-        return "High Correlation"
+    return "High Correlation"
     elif avg_corr < 0.3:
-        return "Low Correlation"
+    return "Low Correlation"
     else:
-        return "Normal Correlation"
+    return "Normal Correlation"
 
 ```
 
@@ -1426,10 +1476,10 @@ def detect_regime_changes(returns, n_regimes=3, lookback=126):
     """Detect market regime changes using HMM"""
     # Prepare data
     X = np.column_stack([
-        returns.rolling(5).mean(),
-        returns.rolling(5).std(),
-        returns.rolling(20).mean(),
-        returns.rolling(20).std()
+    returns.rolling(5).mean(),
+    returns.rolling(5).std(),
+    returns.rolling(20).mean(),
+    returns.rolling(20).std()
     ])
     X = X[20:]
     
@@ -1460,10 +1510,10 @@ def detect_changepoint(data, window=20):
     
     # Prepare features
     features = np.column_stack([
-        data['returns'].rolling(5).mean(),
-        data['returns'].rolling(5).std(),
-        data['volume_change'].rolling(5).mean(),
-        data['rsi'].diff().abs()
+    data['returns'].rolling(5).mean(),
+    data['returns'].rolling(5).std(),
+    data['volume_change'].rolling(5).mean(),
+    data['rsi'].diff().abs()
     ])
     
     # Run change point detection
@@ -1519,24 +1569,24 @@ def walk_forward_optimization(data, param_grid, window_size=252, step_size=63):
     
     # Split data into windows
     for i in range(0, len(data) - window_size - 63, step_size):
-        # Define in-sample and out-of-sample windows
-        train_data = data.iloc[i:i+window_size]
-        test_data = data.iloc[i+window_size:i+window_size+63]
-        
-        # Optimize parameters on training data
-        best_params = grid_search(train_data, param_grid)
-        
-        # Test on out-of-sample data
-        test_results = backtest_strategy(test_data, best_params)
-        
-        results.append({
-            'window_start': data.index[i],
-            'window_end': data.index[i+window_size],
-            'test_start': data.index[i+window_size],
-            'test_end': data.index[i+window_size+63],
-            'parameters': best_params,
-            'performance': test_results
-        })
+    # Define in-sample and out-of-sample windows
+    train_data = data.iloc[i:i+window_size]
+    test_data = data.iloc[i+window_size:i+window_size+63]
+    
+    # Optimize parameters on training data
+    best_params = grid_search(train_data, param_grid)
+    
+    # Test on out-of-sample data
+    test_results = backtest_strategy(test_data, best_params)
+    
+    results.append({
+    'window_start': data.index[i],
+    'window_end': data.index[i+window_size],
+    'test_start': data.index[i+window_size],
+    'test_end': data.index[i+window_size+63],
+    'parameters': best_params,
+    'performance': test_results
+    })
     
     return results
 
@@ -1554,9 +1604,9 @@ def time_series_cv(data, n_splits=5):
     tscv = TimeSeriesSplit(n_splits=n_splits)
     
     for train_idx, test_idx in tscv.split(data):
-        train_data = data.iloc[train_idx]
-        test_data = data.iloc[test_idx]
-        yield train_data, test_data
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+    yield train_data, test_data
 
 ```
 
@@ -1569,21 +1619,21 @@ def regime_based_cv(data, regimes, n_splits=3):
     unique_regimes = np.unique(regimes)
     
     for i in range(n_splits):
-        # For each fold, ensure train and test contain all regimes
-        all_indices = np.arange(len(data))
-        test_indices = []
-        
-        # Sample from each regime for test set
-        for regime in unique_regimes:
-            regime_indices = all_indices[regimes == regime]
-            n_samples = max(int(len(regime_indices) * 0.2), 1)
-            sampled_indices = np.random.choice(regime_indices, n_samples, replace=False)
-            test_indices.extend(sampled_indices)
-        
-        # Remaining indices for training
-        train_indices = np.setdiff1d(all_indices, test_indices)
-        
-        yield data.iloc[train_indices], data.iloc[test_indices]
+    # For each fold, ensure train and test contain all regimes
+    all_indices = np.arange(len(data))
+    test_indices = []
+    
+    # Sample from each regime for test set
+    for regime in unique_regimes:
+    regime_indices = all_indices[regimes == regime]
+    n_samples = max(int(len(regime_indices) * 0.2), 1)
+    sampled_indices = np.random.choice(regime_indices, n_samples, replace=False)
+    test_indices.extend(sampled_indices)
+    
+    # Remaining indices for training
+    train_indices = np.setdiff1d(all_indices, test_indices)
+    
+    yield data.iloc[train_indices], data.iloc[test_indices]
 
 ```
 
@@ -1603,16 +1653,16 @@ def grid_search(data, param_grid):
     param_combinations = list(itertools.product(*param_grid.values()))
     
     for params in param_combinations:
-        # Convert to dictionary
-        param_dict = dict(zip(param_grid.keys(), params))
-        
-        # Run backtest
-        results = backtest_strategy(data, param_dict)
-        score = calculate_objective(results)
-        
-        if score > best_score:
-            best_score = score
-            best_params = param_dict
+    # Convert to dictionary
+    param_dict = dict(zip(param_grid.keys(), params))
+    
+    # Run backtest
+    results = backtest_strategy(data, param_dict)
+    score = calculate_objective(results)
+    
+    if score > best_score:
+    best_score = score
+    best_params = param_dict
     
     return best_params
 
@@ -1627,16 +1677,16 @@ def random_search(data, param_distributions, n_iter=100):
     best_params = None
     
     for _ in range(n_iter):
-        # Sample random parameters
-        params = {k: np.random.choice(v) for k, v in param_distributions.items()}
-        
-        # Run backtest
-        results = backtest_strategy(data, params)
-        score = calculate_objective(results)
-        
-        if score > best_score:
-            best_score = score
-            best_params = params
+    # Sample random parameters
+    params = {k: np.random.choice(v) for k, v in param_distributions.items()}
+    
+    # Run backtest
+    results = backtest_strategy(data, params)
+    score = calculate_objective(results)
+    
+    if score > best_score:
+    best_score = score
+    best_params = params
     
     return best_params
 
@@ -1652,20 +1702,20 @@ def monte_carlo_test(strategy, data, params, n_simulations=1000):
     results = []
     
     for _ in range(n_simulations):
-        # Generate bootstrap sample
-        sampled_data = bootstrap_sample(data)
-        
-        # Run backtest
-        sim_result = backtest_strategy(sampled_data, params)
-        results.append(sim_result)
+    # Generate bootstrap sample
+    sampled_data = bootstrap_sample(data)
+    
+    # Run backtest
+    sim_result = backtest_strategy(sampled_data, params)
+    results.append(sim_result)
     
     # Calculate confidence intervals
     return {
-        'mean': np.mean([r['return'] for r in results]),
-        'std': np.std([r['return'] for r in results]),
-        'max_drawdown_95': np.percentile([r['max_drawdown'] for r in results], 95),
-        'return_5': np.percentile([r['return'] for r in results], 5),
-        'sharpe_5': np.percentile([r['sharpe'] for r in results], 5)
+    'mean': np.mean([r['return'] for r in results]),
+    'std': np.std([r['return'] for r in results]),
+    'max_drawdown_95': np.percentile([r['max_drawdown'] for r in results], 95),
+    'return_5': np.percentile([r['return'] for r in results], 5),
+    'sharpe_5': np.percentile([r['sharpe'] for r in results], 5)
     }
 
 ```
@@ -1680,9 +1730,9 @@ def stress_test(strategy, data, params, scenarios):
     results = {}
     
     for scenario_name, scenario_data in scenarios.items():
-        # Run backtest under specific scenario
-        scenario_result = backtest_strategy(scenario_data, params)
-        results[scenario_name] = scenario_result
+    # Run backtest under specific scenario
+    scenario_result = backtest_strategy(scenario_data, params)
+    results[scenario_name] = scenario_result
     
     return results
 
@@ -1785,11 +1835,11 @@ def smart_order_routing(order, market_data):
     
     # Determine order type based on conditions
     if current_volume < 0.3 * avg_volume:
-        return "limit", market_data['mid']  # Low volume, use limit
+    return "limit", market_data['mid']  # Low volume, use limit
     elif spread > market_data['avg_spread'] * 2:
-        return "limit", market_data['mid']  # Wide spread, use limit
+    return "limit", market_data['mid']  # Wide spread, use limit
     else:
-        return "market", None  # Normal conditions, use market
+    return "market", None  # Normal conditions, use market
 
 ```
 

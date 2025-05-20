@@ -1,2 +1,63 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebook
 .ipynb_checkpoints
-__pycache__
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation tools and generated files
+docs/temp_*.md
+docs/thesis_temp.html
+docs/*_backup*.md
+docs/*_fixed.md
+docs/*_merged.md
+docs/*.html
+docs/*.pyc
+docs/Nifty500_Thesis_Backup_*.pdf
+
+# TA-Lib source files (users should download these themselves)
+ta-lib-*.tar.gz*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
