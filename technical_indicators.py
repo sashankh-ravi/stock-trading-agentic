@@ -23,6 +23,8 @@ import logging
 from scipy import stats
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+import itertools
+from relative_strength import calculate_relative_strength_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -344,14 +346,117 @@ class TechnicalIndicators:
         # MESA Sine Wave
         df['MESA_SINE'], df['MESA_LEADSIN'] = talib.HT_SINE(df['Close'])
         
+    def _align_data_periods(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Align data periods to ensure consistent time windows across all indicators
+        
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame containing all indicators and market data
+            
+        Returns:
+        --------
+        pd.DataFrame
+            DataFrame with aligned periods for all indicators
+        """
+        # Get common date range
+        all_dates = set.intersection(*[set(df[col].dropna().index) for col in df.columns])
+        if not all_dates:
+            logger.warning("No common dates found across indicators")
+            return pd.DataFrame()
+            
+        # Align to common dates
+        common_df = df.loc[sorted(all_dates)]
+        return common_df
+
+    def _standardize_periods(self, series1: pd.Series, series2: pd.Series) -> Tuple[pd.Series, pd.Series]:
+        """
+        Standardize two time series to match periods
+        
+        Parameters:
+        -----------
+        series1, series2 : pd.Series
+            Time series data to align
+            
+        Returns:
+        --------
+        Tuple[pd.Series, pd.Series]
+            Aligned time series with matching periods
+        """
+        from data_alignment import align_series
+        return align_series(series1, series2)
+
+    def _compute_correlation(self, series1: pd.Series, series2: pd.Series) -> float:
+        """
+        Compute correlation between two series with proper handling of dimensions
+        
+        Parameters:
+        -----------
+        series1, series2 : pd.Series
+            Time series data to correlate
+            
+        Returns:
+        --------
+        float
+            Correlation coefficient or NaN if correlation cannot be computed
+        """
+        try:
+            if len(series1) != len(series2):
+                series1, series2 = self._standardize_periods(series1, series2)
+                
+            if len(series1) < 2 or len(series2) < 2:
+                return np.nan
+                
+            return series1.corr(series2)
+        except Exception as e:
+            logger.error(f"Error computing correlation: {e}")
+            return np.nan
+
     def _update_correlation_matrix(self, df: pd.DataFrame):
         """
-        Update correlation matrix between indicators
+        Update correlation matrix between indicators with proper dimension handling
         Helps identify redundant indicators
+        
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame with all indicators and market data
         """
-        # Select only numeric columns
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        self.correlation_matrix = df[numeric_cols].corr()
+        try:
+            # Select only numeric columns
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            
+            # Align periods first
+            aligned_df = self._align_data_periods(df[numeric_cols])
+            if aligned_df.empty:
+                logger.error("Could not align data periods for correlation calculation")
+                self.correlation_matrix = pd.DataFrame()
+                return
+                
+            # Initialize correlation matrix
+            n_cols = len(numeric_cols)
+            corr_matrix = pd.DataFrame(np.zeros((n_cols, n_cols)), 
+                                     index=numeric_cols, 
+                                     columns=numeric_cols)
+                                     
+            # Compute correlations pairwise with proper dimension handling
+            for i, col1 in enumerate(numeric_cols):
+                for j, col2 in enumerate(numeric_cols):
+                    if i > j:  # Only compute lower triangle
+                        continue
+                    elif i == j:
+                        corr_matrix.loc[col1, col2] = 1.0
+                    else:
+                        corr = self._compute_correlation(aligned_df[col1], aligned_df[col2])
+                        corr_matrix.loc[col1, col2] = corr
+                        corr_matrix.loc[col2, col1] = corr  # Matrix is symmetric
+                        
+            self.correlation_matrix = corr_matrix
+            
+        except Exception as e:
+            logger.error(f"Error updating correlation matrix: {e}")
+            self.correlation_matrix = pd.DataFrame()
         
     def get_uncorrelated_indicators(self, threshold: float = 0.7) -> Dict[str, List[str]]:
         """
@@ -655,3 +760,78 @@ class TechnicalIndicators:
         'ADX': lambda x: 'buy' if x > 25 else 'hold',
         # Add more interpretation rules as needed
     }
+    
+    def _calculate_relative_strength(self, stock_data: pd.Series, market_data: pd.Series) -> float:
+        """
+        Calculate relative strength safely, avoiding Series truth value ambiguity
+        
+        Parameters:
+        -----------
+        stock_data : pd.Series
+            Stock price data
+        market_data : pd.Series
+            Market index data
+            
+        Returns:
+        --------
+        float
+            Relative strength value
+        """
+        try:
+            # Align data first
+            stock_data, market_data = self._standardize_periods(stock_data, market_data)
+            
+            if len(stock_data) < 2 or len(market_data) < 2:
+                return 0.0
+            
+            # Calculate returns
+            stock_returns = stock_data.pct_change().dropna()
+            market_returns = market_data.pct_change().dropna()
+            
+            # Calculate relative strength
+            stock_cumret = (1 + stock_returns).prod() - 1
+            market_cumret = (1 + market_returns).prod() - 1
+            
+            if market_cumret == 0:
+                return 0.0
+                
+            relative_strength = stock_cumret / market_cumret
+            
+            return relative_strength
+            
+        except Exception as e:
+            logger.error(f"Error calculating relative strength: {e}")
+            return 0.0
+    
+    def calculate_relative_strength(self, stock_df: pd.DataFrame, market_df: pd.DataFrame) -> Dict[str, float]:
+        """
+        Calculate relative strength against multiple market indices using the centralized implementation.
+        
+        Parameters:
+        -----------
+        stock_df : pd.DataFrame
+            Stock price data with Close column
+        market_df : pd.DataFrame
+            Market indices data with columns for each index
+            
+        Returns:
+        --------
+        Dict[str, float]
+            Dictionary of relative strength metrics against each market index
+        """
+        try:
+            if 'Close' not in stock_df.columns:
+                logger.warning("Close column not found in stock data")
+                return {}
+                
+            # Use centralized RS calculation
+            return calculate_relative_strength_metrics(
+                stock_data=stock_df['Close'],
+                market_data=market_df,
+                window=90,  # Use default window
+                min_periods=20  # Use default minimum periods
+            )
+            
+        except Exception as e:
+            logger.error(f"Error calculating relative strength metrics: {e}")
+            return {}

@@ -1,6 +1,16 @@
 # Nifty500 Trading System
 
-An advanced trading system that combines technical analysis, reinforcement learning, and financial reasoning for algorithmic trading on the Nifty 500 index.
+An advanced algorithmic trading system that combines technical analysis, reinforcement learning, and financial reasoning for systematic trading on the Nifty 500 index. This comprehensive framework includes 97 technical indicators, fundamental analysis, market sentiment analysis, and robust data collection mechanisms.
+
+## Table of Contents
+1. [Features](#features)
+2. [Project Structure](#project-structure)
+3. [Data Collection Framework](#data-collection-framework)
+4. [Technical Indicators](#technical-indicators)
+5. [Fundamental Analysis](#fundamental-analysis)
+6. [Getting Started](#getting-started)
+7. [Documentation](#documentation)
+8. [License](#license)
 
 ## Features
 
@@ -55,9 +65,33 @@ python train.py
 
 ## Documentation
 
-The complete documentation for this system is available in:
-- **`docs/nifty500_trading_system_thesis.md`**: Comprehensive system design and implementation details
-- **`docs/Nifty500_Trading_System_Complete.pdf`**: PDF version with visualizations and references
+The complete documentation for this system is available in multiple formats:
+
+### Comprehensive Technical Documentation
+
+- [**Technical Indicators Guide**](docs/TECHNICAL_INDICATORS.md): Detailed explanations of all 97 technical indicators with formulas, examples, and usage guidelines
+- [**Data Download System**](docs/DATA_DOWNLOAD_SYSTEM.md): Complete documentation of the data collection and processing framework
+- [**System Documentation**](docs/COMPREHENSIVE_DOCUMENTATION.md): Overall system architecture and implementation details
+
+### System Design and Analysis
+
+- [**Trading System Thesis**](docs/nifty500_trading_system_thesis.md): Comprehensive analysis and design principles
+- [**Pattern Analysis Guide**](docs/comprehensive_pattern_guide_enhanced.md): Complete guide to candlestick and chart patterns
+- [**Performance Metrics**](docs/nifty500_trading_system_thesis.md#performance-metrics): Detailed performance analysis and metrics
+
+### Implementation Reference
+
+- [**Getting Started**](docs/index.md#getting-started): Installation and setup instructions
+- [**API Documentation**](docs/index.md#implementation-files): Code-level documentation
+- [**Examples**](docs/index.md#examples-visualizations): Sample implementations and visualizations
+
+Each document includes:
+- Detailed explanations with examples
+- Mathematical formulas and calculations
+- Code snippets and implementation details
+- Configuration options and best practices
+- Performance analysis and optimization tips
+- Troubleshooting guides and common issues
 
 ## License
 

@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 import talib
 from typing import Dict, Tuple, List
-from strategies.base_strategy import BaseStrategy, Signal
+from strategies.base_strategy import Signal
+from backtesting.base_strategy import BaseStrategy
 from technical_indicators import TechnicalIndicators
 import logging
 
@@ -39,67 +40,198 @@ class Nifty500Strategy(BaseStrategy):
         self.indicators = TechnicalIndicators()
         
     def generate_signal(self, data: pd.DataFrame) -> Signal:
-        """Generate trading signal based on multi-factor analysis"""
-        try:
-            if len(data) < self.lookback:
-                return self._create_neutral_signal(data)
-                
-            # Calculate all technical indicators
-            df = self.indicators.calculate_all(data.copy())
+        """Generate trading signal for a single stock"""
+        # Skip if not enough data
+        if len(data) < self.lookback:
+            return Signal(
+                timestamp=data.index[-1],
+                symbol="",  # Symbol not provided in single-stock case
+                action="hold",
+                confidence=0,
+                price=data['Close'].iloc[-1],
+                stop_loss=0,
+                take_profit=0,
+                position_size=0,
+                metrics={}
+            )
+        
+        # Use the provided data directly without recalculating indicators
+        df_with_indicators = data
+        
+        # If some columns are missing, use defaults
+        has_macd = 'MACD' in df_with_indicators.columns and 'MACD_Signal' in df_with_indicators.columns
+        has_adx = 'ADX' in df_with_indicators.columns
+        has_rsi = 'RSI' in df_with_indicators.columns
+        has_stoch = 'STOCH_K' in df_with_indicators.columns and 'STOCH_D' in df_with_indicators.columns
+        has_cci = 'CCI' in df_with_indicators.columns
+        has_bb = 'BB_Upper' in df_with_indicators.columns and 'BB_Lower' in df_with_indicators.columns
+        has_atr = 'ATR' in df_with_indicators.columns
+        
+        # Analyze components with simplified fallbacks when indicators are missing
+        trend_score = 0
+        if has_macd and has_adx:
+            trend_score = self._analyze_trend(df_with_indicators)
+        else:
+            # Simple trend based on price movement
+            sma20 = df_with_indicators['Close'].rolling(20).mean().iloc[-1] if len(df_with_indicators) >= 20 else df_with_indicators['Close'].mean()
+            sma50 = df_with_indicators['Close'].rolling(50).mean().iloc[-1] if len(df_with_indicators) >= 50 else df_with_indicators['Close'].mean()
+            trend_score = 1 if sma20 > sma50 else -1
+            trend_score *= 0.7  # Reduce confidence for simplified calculation
+        
+        momentum_score = 0
+        if has_rsi and has_stoch and has_cci:
+            momentum_score = self._analyze_momentum(df_with_indicators)
+        else:
+            # Simple momentum based on returns
+            returns = df_with_indicators['Close'].pct_change(5).iloc[-1] * 20  # Normalized to -1 to 1 range
+            momentum_score = np.clip(returns, -1, 1)
+        
+        volume_score = 0
+        if 'Volume' in df_with_indicators.columns and 'OBV' in df_with_indicators.columns:
+            volume_score = self._analyze_volume(df_with_indicators)
+        else:
+            # Neutral volume score if volume data is missing
+            volume_score = 0
+        
+        volatility_score = 0
+        risk_metrics = {}
+        if has_atr and has_bb:
+            volatility_score, risk_metrics = self._analyze_volatility(df_with_indicators)
+        else:
+            # Simple volatility based on std
+            volatility = df_with_indicators['Close'].pct_change().rolling(20).std().iloc[-1] if len(df_with_indicators) >= 20 else 0.02
+            volatility_score = 1 - min(volatility * 20, 1)  # Lower volatility is better
+            risk_metrics = {'atr': volatility * df_with_indicators['Close'].iloc[-1]}
+        
+        # Combine signals
+        total_score = self._combine_signals(
+            trend_score, momentum_score, volume_score, volatility_score
+        )
+        
+        current_price = data['Close'].iloc[-1]
+        
+        # Determine action based on score
+        if total_score > 0.6:
+            action = "buy"
+            confidence = total_score
+            stop_loss = current_price * (1 - self.stop_loss_pct)
+            take_profit = current_price * (1 + self.take_profit_pct)
+            position_size = self._calculate_position_size(
+                current_price, 
+                risk_metrics['atr'], 
+                abs(total_score)
+            )
+        elif total_score < -0.6:
+            action = "sell"
+            confidence = abs(total_score)
+            stop_loss = current_price * (1 + self.stop_loss_pct)
+            take_profit = current_price * (1 - self.take_profit_pct)
+            position_size = self._calculate_position_size(
+                current_price, 
+                risk_metrics['atr'], 
+                abs(total_score)
+            )
+        else:
+            action = "hold"
+            confidence = abs(total_score)
+            stop_loss = 0
+            take_profit = 0
+            position_size = 0
             
-            # 1. Analyze Trend
-            trend_score = self._analyze_trend(df)
-            
-            # 2. Momentum Analysis
-            momentum_score = self._analyze_momentum(df)
-            
-            # 3. Volume Analysis
-            volume_score = self._analyze_volume(df)
-            
-            # 4. Volatility Analysis
-            volatility_score, risk_metrics = self._analyze_volatility(df)
-            
-            # Combine signals
-            signal = self._create_signal(df)
-            total_score = self._combine_signals(trend_score, momentum_score, volume_score, volatility_score)
-            
-            current_price = df['Close'].iloc[-1]
-            
-            # Generate final signal
-            if abs(total_score) > 0.6:  # Signal threshold
-                signal.action = "buy" if total_score > 0 else "sell"
-                signal.confidence = abs(total_score)
-                
-                # Set stop loss and take profit
-                if signal.action == "buy":
-                    signal.stop_loss = current_price * (1 - self.stop_loss_pct)
-                    signal.take_profit = current_price * (1 + self.take_profit_pct)
-                else:
-                    signal.stop_loss = current_price * (1 + self.stop_loss_pct)
-                    signal.take_profit = current_price * (1 - self.take_profit_pct)
-                    
-                # Calculate position size
-                signal.position_size = self._calculate_position_size(
-                    current_price,
-                    risk_metrics['atr'],
-                    signal.confidence
-                )
-            
-            # Add analysis metrics
-            signal.metrics.update({
+        return Signal(
+            timestamp=data.index[-1],
+            symbol="",  # Symbol not provided in single-stock case
+            action=action,
+            confidence=confidence,
+            price=current_price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            position_size=position_size,
+            metrics={
                 'trend_score': trend_score,
                 'momentum_score': momentum_score,
                 'volume_score': volume_score,
                 'volatility_score': volatility_score,
-                'risk_metrics': risk_metrics
-            })
-            
-            return signal
-            
+                'total_score': total_score
+            }
+        )
+        
+    def generate_signals(self, data: Dict[str, pd.DataFrame]) -> List[Signal]:
+        """Generate trading signals for all symbols"""
+        signals = []
+        
+        try:
+            for symbol, df in data.items():
+                if len(df) < self.lookback:
+                    signals.append(self._create_neutral_signal(df, symbol))
+                    continue
+                
+                # Calculate technical indicators
+                df_with_indicators = self.indicators.calculate_all(df.copy())
+                
+                # Analyze components
+                trend_score = self._analyze_trend(df_with_indicators)
+                momentum_score = self._analyze_momentum(df_with_indicators)
+                volume_score = self._analyze_volume(df_with_indicators)
+                volatility_score, risk_metrics = self._analyze_volatility(df_with_indicators)
+                
+                # Combine signals
+                total_score = self._combine_signals(
+                    trend_score, momentum_score, volume_score, volatility_score
+                )
+                
+                current_price = df['Close'].iloc[-1]
+                timestamp = df.index[-1]
+                
+                if abs(total_score) > 0.6:  # Signal threshold
+                    direction = 1 if total_score > 0 else -1
+                    size = self._calculate_position_size(
+                        current_price,
+                        risk_metrics['atr'],
+                        abs(total_score)
+                    )
+                    
+                    signals.append(Signal(
+                        timestamp=timestamp,
+                        symbol=symbol,
+                        direction=direction,
+                        size=size,
+                        type='ENTRY',
+                        reason=f'Combined score: {total_score:.2f}',
+                        price=current_price,
+                        params={
+                            'trend_score': trend_score,
+                            'momentum_score': momentum_score,
+                            'volume_score': volume_score,
+                            'volatility_score': volatility_score,
+                            'stop_loss': current_price * (1 - direction * self.stop_loss_pct),
+                            'take_profit': current_price * (1 + direction * self.take_profit_pct)
+                        }
+                    ))
+                else:
+                    signals.append(self._create_neutral_signal(df, symbol))
+                
         except Exception as e:
-            logger.error(f"Error generating signal: {e}")
-            return self._create_neutral_signal(data)
-            
+            logger.error(f"Error generating signals: {str(e)}")
+            # Return neutral signals on error
+            for symbol in data.keys():
+                signals.append(self._create_neutral_signal(data[symbol], symbol))
+        
+        return signals
+    
+    def _create_neutral_signal(self, data: pd.DataFrame, symbol: str) -> Signal:
+        """Create a neutral (no trade) signal"""
+        return Signal(
+            timestamp=data.index[-1],
+            symbol=symbol,
+            direction=0,
+            size=0,
+            type='NEUTRAL',
+            reason='No clear signal or insufficient data',
+            price=data['Close'].iloc[-1],
+            params=None
+        )
+    
     def _analyze_trend(self, data: pd.DataFrame) -> float:
         """Analyze trend strength and direction"""
         try:

@@ -2,7 +2,14 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
 import yfinance as yf
-from technical_strategy import MultiStrategyTrader
+# Import the original StrategyCombiner
+import sys
+sys.path.append('/home/sashankhravi/Documents/stock-trading-agentic')
+from strategies.strategy_combiner import StrategyCombiner
+from datetime import datetime, timedelta
+import logging
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
 from datetime import datetime, timedelta
 import logging
 from sklearn.model_selection import train_test_split
@@ -63,7 +70,7 @@ class RealtimeMonitor:
         """
         self.symbols = symbols
         self.update_interval = update_interval
-        self.trader = MultiStrategyTrader(min_confidence=0.6)
+        self.trader = StrategyCombiner(min_confidence=0.6)
         self.conformal_predictors = {}
         self.signal_queue = Queue()
         self.stop_event = threading.Event()
@@ -113,102 +120,94 @@ class RealtimeMonitor:
         start_date = end_date - timedelta(days=lookback_days)
         
         for symbol in self.symbols:
-            try:
-                # Fetch historical data
-                stock = yf.Ticker(symbol)
-                data = stock.history(start=start_date, end=end_date, interval='5m')
+            # Fetch historical data
+            stock = yf.Ticker(symbol)
+            data = stock.history(start=start_date, end=end_date, interval='5m')
+            
+            if len(data) < 100:
+                logger.warning(f"Insufficient data for {symbol}")
+                continue
+            
+            # Prepare features and targets
+            X = []
+            y = []
+            
+            for i in range(20, len(data)-1):
+                window = data.iloc[:i]
+                features = self._prepare_features(window)
+                target = (data.iloc[i+1]['Close'] - data.iloc[i]['Close']) / data.iloc[i]['Close']
                 
-                if len(data) < 100:
-                    logger.warning(f"Insufficient data for {symbol}")
-                    continue
-                
-                # Prepare features and targets
-                X = []
-                y = []
-                
-                for i in range(20, len(data)-1):
-                    window = data.iloc[:i]
-                    features = self._prepare_features(window)
-                    target = (data.iloc[i+1]['Close'] - data.iloc[i]['Close']) / data.iloc[i]['Close']
-                    
-                    X.append(features)
-                    y.append(target)
-                
-                X = np.array(X)
-                y = np.array(y)
-                
-                # Train predictor
-                predictor = ConformalPredictor()
-                predictor.fit(X, y)
-                self.conformal_predictors[symbol] = predictor
-                
-                logger.info(f"Trained predictor for {symbol}")
-                
-                # Initialize history storage
-                self.history[symbol] = {
-                    'predictions': [],
-                    'actuals': [],
-                    'confidence_intervals': []
-                }
-                
-            except Exception as e:
-                logger.error(f"Error training predictor for {symbol}: {e}")
+                X.append(features)
+                y.append(target)
+            
+            X = np.array(X)
+            y = np.array(y)
+            
+            # Train predictor
+            predictor = ConformalPredictor()
+            predictor.fit(X, y)
+            self.conformal_predictors[symbol] = predictor
+            
+            logger.info(f"Trained predictor for {symbol}")
+            
+            # Initialize history storage
+            self.history[symbol] = {
+                'predictions': [],
+                'actuals': [],
+                'confidence_intervals': []
+            }
                 
     def _monitor_symbol(self, symbol: str):
         """Monitor a single symbol"""
-        try:
-            # Fetch recent data
-            stock = yf.Ticker(symbol)
-            data = stock.history(period='1d', interval='5m')
+        # Fetch recent data
+        stock = yf.Ticker(symbol)
+        data = stock.history(period='1d', interval='5m')
+        
+        if len(data) < 20:
+            logger.warning(f"Insufficient data for {symbol}")
+            return
+        
+        # Get trading signals
+        analysis = self.trader.analyze(data)
+        
+        if analysis is None:
+            return
             
-            if len(data) < 20:
-                logger.warning(f"Insufficient data for {symbol}")
-                return
-            
-            # Get trading signals
-            analysis = self.trader.analyze(data)
-            
-            if analysis is None:
-                return
-                
-            # Get price prediction if predictor exists
-            prediction_info = {}
-            if symbol in self.conformal_predictors:
-                features = self._prepare_features(data)
-                pred, lower, upper = self.conformal_predictors[symbol].predict(
-                    features.reshape(1, -1)
-                )
-                prediction_info = {
-                    'predicted_return': pred[0],
-                    'lower_bound': lower[0],
-                    'upper_bound': upper[0],
-                    'timestamp': datetime.now()
-                }
-                
-                # Store prediction
-                self.history[symbol]['predictions'].append(prediction_info)
-                
-                # Update actual returns for previous predictions
-                self._update_prediction_accuracy(symbol, data)
-            
-            # Combine signals and predictions
-            signal = {
-                'symbol': symbol,
-                'timestamp': datetime.now(),
-                'price': data['Close'].iloc[-1],
-                'action': analysis['action'],
-                'confidence': analysis['confidence'],
-                'stop_loss': analysis['stop_loss'],
-                'take_profit': analysis['take_profit'],
-                'prediction': prediction_info,
-                'strategy_signals': analysis['signals']
+        # Get price prediction if predictor exists
+        prediction_info = {}
+        if symbol in self.conformal_predictors:
+            features = self._prepare_features(data)
+            pred, lower, upper = self.conformal_predictors[symbol].predict(
+                features.reshape(1, -1)
+            )
+            prediction_info = {
+                'predicted_return': pred[0],
+                'lower_bound': lower[0],
+                'upper_bound': upper[0],
+                'timestamp': datetime.now()
             }
             
-            # Add to queue
-            self.signal_queue.put(signal)
+            # Store prediction
+            self.history[symbol]['predictions'].append(prediction_info)
             
-        except Exception as e:
-            logger.error(f"Error monitoring {symbol}: {e}")
+            # Update actual returns for previous predictions
+            self._update_prediction_accuracy(symbol, data)
+        
+        # Combine signals and predictions
+        signal = {
+            'symbol': symbol,
+            'timestamp': datetime.now(),
+            'price': data['Close'].iloc[-1],
+            'action': analysis['action'],
+            'confidence': analysis['confidence'],
+            'stop_loss': analysis['stop_loss'],
+            'take_profit': analysis['take_profit'],
+            'prediction': prediction_info,
+            'strategy_signals': analysis['signals']
+        }
+        
+        # Add to queue
+        self.signal_queue.put(signal)
             
     def _update_prediction_accuracy(self, symbol: str, current_data: pd.DataFrame):
         """Update prediction accuracy metrics"""
@@ -222,19 +221,16 @@ class RealtimeMonitor:
         for pred in history['predictions']:
             if 'actual_return' not in pred and pred['timestamp'] < datetime.now() - timedelta(minutes=5):
                 # Find the actual return
-                try:
-                    timestamp = pred['timestamp']
-                    historical_price = current_data.loc[current_data.index <= timestamp].iloc[-1]['Close']
-                    actual_return = (current_price - historical_price) / historical_price
-                    pred['actual_return'] = actual_return
-                    history['actuals'].append(actual_return)
-                    
-                    # Store confidence interval performance
-                    in_interval = (actual_return >= pred['lower_bound'] and 
-                                actual_return <= pred['upper_bound'])
-                    history['confidence_intervals'].append(in_interval)
-                except Exception as e:
-                    logger.error(f"Error updating prediction accuracy: {e}")
+                timestamp = pred['timestamp']
+                historical_price = current_data.loc[current_data.index <= timestamp].iloc[-1]['Close']
+                actual_return = (current_price - historical_price) / historical_price
+                pred['actual_return'] = actual_return
+                history['actuals'].append(actual_return)
+                
+                # Store confidence interval performance
+                in_interval = (actual_return >= pred['lower_bound'] and 
+                            actual_return <= pred['upper_bound'])
+                history['confidence_intervals'].append(in_interval)
                     
     def get_prediction_metrics(self, symbol: str) -> Optional[Dict]:
         """Get prediction performance metrics for a symbol"""
@@ -342,31 +338,25 @@ class RealtimeMonitor:
                 
     def _save_signal(self, signal: Dict):
         """Save trading signal to file for historical analysis"""
-        try:
-            filename = f"signals_{datetime.now().strftime('%Y%m%d')}.json"
-            signal_data = {
-                'timestamp': signal['timestamp'].isoformat(),
-                'symbol': signal['symbol'],
-                'action': signal['action'],
-                'price': signal['price'],
-                'confidence': signal['confidence'],
-                'prediction': signal['prediction'],
-                'supporting_strategies': [s for s in signal['strategy_signals'] 
-                                       if s['action'] == signal['action']]
-            }
-            
-            with open(filename, 'a') as f:
-                f.write(json.dumps(signal_data) + '\n')
-                
-        except Exception as e:
-            logger.error(f"Error saving signal: {e}")
+        filename = f"signals_{datetime.now().strftime('%Y%m%d')}.json"
+        signal_data = {
+            'timestamp': signal['timestamp'].isoformat(),
+            'symbol': signal['symbol'],
+            'action': signal['action'],
+            'price': signal['price'],
+            'confidence': signal['confidence'],
+            'prediction': signal['prediction'],
+            'supporting_strategies': [s for s in signal['strategy_signals'] 
+                                   if s['action'] == signal['action']]
+        }
+        
+        with open(filename, 'a') as f:
+            f.write(json.dumps(signal_data) + '\n')
             
     def stop_monitoring(self):
         """Stop real-time monitoring"""
         self.stop_event.set()
-        logger.info("Stopping monitoring...")
-
-# Example usage
+        logger.info("Stopping monitoring...")    # Example usage
 if __name__ == "__main__":
     # Get Nifty 500 symbols (example subset)
     nifty_symbols = [
@@ -381,9 +371,5 @@ if __name__ == "__main__":
     logger.info("Training predictors...")
     monitor.train_predictors()
     
-    try:
-        # Start monitoring
-        monitor.start_monitoring()
-    except KeyboardInterrupt:
-        monitor.stop_monitoring()
-        logger.info("Monitoring stopped by user")
+    # Start monitoring
+    monitor.start_monitoring()
