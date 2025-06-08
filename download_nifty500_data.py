@@ -45,19 +45,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# List of global market indices, commodities, and bonds to track correlations
-GLOBAL_INDICES = {
-    # Indian Indices
+# Indian Market Indices
+INDIAN_SECTOR_INDICES = {
     '^NSEI': 'Nifty 50',
     '^BSESN': 'Sensex',
     '^NSMIDCP': 'Nifty Midcap',
-    '^CNXIT': 'Nifty IT',
     '^CNXBANK': 'Nifty Bank',
-    '^CNXPHARMA': 'Nifty Pharma',
     '^CNXAUTO': 'Nifty Auto',
     '^CNXFMCG': 'Nifty FMCG',
+    '^CNXIT': 'Nifty IT',
     '^CNXMETAL': 'Nifty Metal',
+    '^CNXPHARMA': 'Nifty Pharma',
     '^CNXREALTY': 'Nifty Realty',
+    '^CNXENERGY': 'Nifty Energy',
+    '^CNXINFRA': 'Nifty Infrastructure',
+    '^CNXFINANCE': 'Nifty Financial Services',
+    '^CNXFINSRV': 'Nifty Financial Services 25/50',
+    '^CNXCONSUM': 'Nifty Consumer',
+    '^CNXPSUBANK': 'Nifty PSU Bank',
+    '^CNXMEDIA': 'Nifty Media'
+}
+
+# List of global market indices, commodities, and bonds to track correlations
+GLOBAL_INDICES = {
+    # Indian Indices (moved to INDIAN_SECTOR_INDICES)
+    **INDIAN_SECTOR_INDICES,
     
     # Global Indices
     '^GSPC': 'S&P 500',
@@ -290,6 +302,19 @@ def get_fundamental_data(symbol: str) -> Dict[str, Any]:
         'earnings_growth': info.get('earningsGrowth', 0) * 100 if info.get('earningsGrowth') else 0,
         'eps_growth': info.get('earningsQuarterlyGrowth', 0) * 100 if info.get('earningsQuarterlyGrowth') else 0,
         
+        # Ownership and Institutional Data
+        'institutional_ownership': info.get('institutionsPercentHeld', 0) * 100 if info.get('institutionsPercentHeld') else 0,
+        'institutional_ownership_change': info.get('institutionsPercentChange', 0) * 100 if info.get('institutionsPercentChange') else 0,
+        'institutions_count': info.get('institutionsCount', 0),
+        'insider_ownership': info.get('insiderPercentHeld', 0) * 100 if info.get('insiderPercentHeld') else 0,
+        'short_percent': info.get('shortPercentOfFloat', 0) * 100 if info.get('shortPercentOfFloat') else 0,
+        'short_ratio': info.get('shortRatio', 0),
+        
+        # Liquidity Metrics
+        'average_volume': info.get('averageVolume', 0),
+        'average_volume_10d': info.get('averageVolume10days', 0),
+        'relative_volume': info.get('averageVolume10days', 0) / info.get('averageVolume', 1) if info.get('averageVolume') else 0,
+        
         # Earnings Data
         'eps_ttm': info.get('trailingEps', 0),
         'eps_forward': info.get('forwardEps', 0),
@@ -423,158 +448,147 @@ def get_news_sentiment(symbol: str) -> Dict[str, Any]:
     Returns:
         Dictionary with sentiment scores, news items, and trend analysis
     """
-    try:
-        ticker = yf.Ticker(symbol)
-        news = ticker.news
-        
-        if not news:
-            return {
-                'sentiment_score': 0, 
-                'article_count': 0, 
-                'recent_sentiment': 'neutral',
-                'sentiment_trend': 'stable',
-                'sentiment_distribution': {'positive': 0, 'neutral': 0, 'negative': 0}
-            }
-        
-        # Positive and negative keyword lists (expanded for Indian market context)
-        positive_keywords = [
-            # Standard positive terms
-            'rise', 'gain', 'grow', 'up', 'bull', 'outperform', 'beat', 'strong', 'positive',
-            'surge', 'jump', 'soar', 'rally', 'exceed', 'boost', 'upgrade', 'buy', 'overweight',
-            'recommend', 'profit', 'improve', 'success', 'promising', 'upside', 'opportunity',
-            # India-specific positive terms
-            'disinvestment', 'FDI', 'reform', 'digital', 'infrastructure', 'dividend', 'bonus',
-            'export', 'innovation', 'unlock', 'expansion', 'partnership', 'merger'
-        ]
-        
-        negative_keywords = [
-            # Standard negative terms
-            'fall', 'drop', 'decline', 'down', 'bear', 'underperform', 'miss', 'weak', 'negative',
-            'plunge', 'tumble', 'sink', 'selloff', 'downgrade', 'sell', 'underweight', 'avoid',
-            'loss', 'concern', 'risk', 'warning', 'trouble', 'dispute', 'downside', 'threat', 
-            # India-specific negative terms
-            'SEBI probe', 'investigation', 'promoter', 'pledge', 'debt', 'default', 'bankruptcy',
-            'audit', 'tax', 'penalty', 'fine', 'litigation', 'strike', 'protest', 'COVID', 'lockdown'
-        ]
-        
-        # Sentiment analysis for each article
-        sentiment_scores = []
-        dates = []
-        all_articles = []
-        sentiment_distribution = {'positive': 0, 'neutral': 0, 'negative': 0}
-        
-        for article in news:
-            # Extract title and publication date
-            title = article.get('title', '').lower()
-            pub_date = article.get('providerPublishTime', 0)
-            
-            # Convert timestamp to datetime
-            if pub_date:
-                pub_date = datetime.datetime.fromtimestamp(pub_date)
-                dates.append(pub_date)
-            
-            # Calculate sentiment score
-            score = 0
-            
-            # Check for positive/negative keywords
-            for word in positive_keywords:
-                if word in title:
-                    score += 1
-            
-            for word in negative_keywords:
-                if word in title:
-                    score -= 1
-            
-            # Apply modifiers (e.g., "not good" should be negative)
-            negation_words = ['not', 'no', 'never', 'neither', 'nor', 'without']
-            for neg in negation_words:
-                if neg in title:
-                    # Find the next sentiment word after negation
-                    neg_idx = title.find(neg)
-                    rest_of_title = title[neg_idx:]
-                    
-                    # Check if any positive words follow the negation
-                    for pos in positive_keywords:
-                        if pos in rest_of_title:
-                            score -= 2  # Flip the sentiment and strengthen it
-                            break
-            
-            # Normalize score to range [-1, 1]
-            if score > 0:
-                normalized_score = min(score / 3, 1.0)  # Cap at 1.0
-                sentiment_distribution['positive'] += 1
-            elif score < 0:
-                normalized_score = max(score / 3, -1.0)  # Cap at -1.0
-                sentiment_distribution['negative'] += 1
-            else:
-                normalized_score = 0
-                sentiment_distribution['neutral'] += 1
-                
-            sentiment_scores.append(normalized_score)
-            
-            # Store article data
-            all_articles.append({
-                'title': article.get('title', ''),
-                'date': pub_date.isoformat() if pub_date else None,
-                'source': article.get('publisher', ''),
-                'url': article.get('link', ''),
-                'sentiment': normalized_score
-            })
-        
-        # Get overall sentiment metrics
-        avg_sentiment = np.mean(sentiment_scores) if sentiment_scores else 0
-        
-        if avg_sentiment > 0.2:
-            sentiment = 'positive'
-        elif avg_sentiment < -0.2:
-            sentiment = 'negative'
-        else:
-            sentiment = 'neutral'
-        
-        # Analyze sentiment trend if we have multiple articles with dates
-        sentiment_trend = 'stable'
-        if len(sentiment_scores) > 1 and len(dates) > 1:
-            # Sort articles by date
-            sorted_scores = [score for _, score in sorted(zip(dates, sentiment_scores))]
-            
-            # Split into two halves (older vs newer)
-            half = len(sorted_scores) // 2
-            older_avg = np.mean(sorted_scores[:half]) if half > 0 else 0
-            newer_avg = np.mean(sorted_scores[half:]) if half < len(sorted_scores) else 0
-            
-            # Determine trend
-            diff = newer_avg - older_avg
-            if diff > 0.3:
-                sentiment_trend = 'improving'
-            elif diff < -0.3:
-                sentiment_trend = 'deteriorating'
-            else:
-                sentiment_trend = 'stable'
-        
-        # Calculate distribution percentages
-        total_articles = len(sentiment_scores) if sentiment_scores else 1
-        for key in sentiment_distribution:
-            sentiment_distribution[key] = round(sentiment_distribution[key] * 100 / total_articles, 1)
-        
-        # Return comprehensive sentiment data
-        return {
-            'sentiment_score': round(avg_sentiment, 2),
-            'article_count': len(news),
-            'recent_sentiment': sentiment,
-            'sentiment_trend': sentiment_trend,
-            'sentiment_distribution': sentiment_distribution,
-            'recent_articles': all_articles[:5] if all_articles else []
-        }
+    ticker = yf.Ticker(symbol)
+    news = ticker.news
     
-    except Exception as e:
-        logger.error(f"Error getting news sentiment for {symbol}: {e}")
+    if not news:
         return {
             'sentiment_score': 0, 
             'article_count': 0, 
             'recent_sentiment': 'neutral',
             'sentiment_trend': 'stable',
-            'error': str(e)
+            'sentiment_distribution': {'positive': 0, 'neutral': 0, 'negative': 0}
         }
+    
+    # Positive and negative keyword lists (expanded for Indian market context)
+    positive_keywords = [
+        # Standard positive terms
+        'rise', 'gain', 'grow', 'up', 'bull', 'outperform', 'beat', 'strong', 'positive',
+        'surge', 'jump', 'soar', 'rally', 'exceed', 'boost', 'upgrade', 'buy', 'overweight',
+        'recommend', 'profit', 'improve', 'success', 'promising', 'upside', 'opportunity',
+        # India-specific positive terms
+        'disinvestment', 'FDI', 'reform', 'digital', 'infrastructure', 'dividend', 'bonus',
+        'export', 'innovation', 'unlock', 'expansion', 'partnership', 'merger'
+    ]
+    
+    negative_keywords = [
+        # Standard negative terms
+        'fall', 'drop', 'decline', 'down', 'bear', 'underperform', 'miss', 'weak', 'negative',
+        'plunge', 'tumble', 'sink', 'selloff', 'downgrade', 'sell', 'underweight', 'avoid',
+        'loss', 'concern', 'risk', 'warning', 'trouble', 'dispute', 'downside', 'threat', 
+        # India-specific negative terms
+        'SEBI probe', 'investigation', 'promoter', 'pledge', 'debt', 'default', 'bankruptcy',
+        'audit', 'tax', 'penalty', 'fine', 'litigation', 'strike', 'protest', 'COVID', 'lockdown'
+    ]
+    
+    # Sentiment analysis for each article
+    sentiment_scores = []
+    dates = []
+    all_articles = []
+    sentiment_distribution = {'positive': 0, 'neutral': 0, 'negative': 0}
+    
+    for article in news:
+        # Extract title and publication date
+        title = article.get('title', '').lower()
+        pub_date = article.get('providerPublishTime', 0)
+        
+        # Convert timestamp to datetime
+        if pub_date:
+            pub_date = datetime.datetime.fromtimestamp(pub_date)
+            dates.append(pub_date)
+        
+        # Calculate sentiment score
+        score = 0
+        
+        # Check for positive/negative keywords
+        for word in positive_keywords:
+            if word in title:
+                score += 1
+        
+        for word in negative_keywords:
+            if word in title:
+                score -= 1
+        
+        # Apply modifiers (e.g., "not good" should be negative)
+        negation_words = ['not', 'no', 'never', 'neither', 'nor', 'without']
+        for neg in negation_words:
+            if neg in title:
+                # Find the next sentiment word after negation
+                neg_idx = title.find(neg)
+                rest_of_title = title[neg_idx:]
+                
+                # Check if any positive words follow the negation
+                for pos in positive_keywords:
+                    if pos in rest_of_title:
+                        score -= 2  # Flip the sentiment and strengthen it
+                        break
+        
+        # Normalize score to range [-1, 1]
+        if score > 0:
+            normalized_score = min(score / 3, 1.0)  # Cap at 1.0
+            sentiment_distribution['positive'] += 1
+        elif score < 0:
+            normalized_score = max(score / 3, -1.0)  # Cap at -1.0
+            sentiment_distribution['negative'] += 1
+        else:
+            normalized_score = 0
+            sentiment_distribution['neutral'] += 1
+            
+        sentiment_scores.append(normalized_score)
+        
+        # Store article data
+        all_articles.append({
+            'title': article.get('title', ''),
+            'date': pub_date.isoformat() if pub_date else None,
+            'source': article.get('publisher', ''),
+            'url': article.get('link', ''),
+            'sentiment': normalized_score
+        })
+    
+    # Get overall sentiment metrics
+    avg_sentiment = np.mean(sentiment_scores) if sentiment_scores else 0
+    
+    if avg_sentiment > 0.2:
+        sentiment = 'positive'
+    elif avg_sentiment < -0.2:
+        sentiment = 'negative'
+    else:
+        sentiment = 'neutral'
+    
+    # Analyze sentiment trend if we have multiple articles with dates
+    sentiment_trend = 'stable'
+    if len(sentiment_scores) > 1 and len(dates) > 1:
+        # Sort articles by date
+        sorted_scores = [score for _, score in sorted(zip(dates, sentiment_scores))]
+        
+        # Split into two halves (older vs newer)
+        half = len(sorted_scores) // 2
+        older_avg = np.mean(sorted_scores[:half]) if half > 0 else 0
+        newer_avg = np.mean(sorted_scores[half:]) if half < len(sorted_scores) else 0
+        
+        # Determine trend
+        diff = newer_avg - older_avg
+        if diff > 0.3:
+            sentiment_trend = 'improving'
+        elif diff < -0.3:
+            sentiment_trend = 'deteriorating'
+        else:
+            sentiment_trend = 'stable'
+    
+    # Calculate distribution percentages
+    total_articles = len(sentiment_scores) if sentiment_scores else 1
+    for key in sentiment_distribution:
+        sentiment_distribution[key] = round(sentiment_distribution[key] * 100 / total_articles, 1)
+    
+    # Return comprehensive sentiment data
+    return {
+        'sentiment_score': round(avg_sentiment, 2),
+        'article_count': len(news),
+        'recent_sentiment': sentiment,
+        'sentiment_trend': sentiment_trend,
+        'sentiment_distribution': sentiment_distribution,
+        'recent_articles': all_articles[:5] if all_articles else []
+    }
 
 def get_intermarket_correlations(symbol: str, symbol_data: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -600,77 +614,69 @@ def get_intermarket_correlations(symbol: str, symbol_data: pd.DataFrame) -> Dict
         'macro_regime_correlations': {}
     }
     
-    try:
-        # Define period to match the symbol data
-        start_date = symbol_data.index[0]
-        end_date = symbol_data.index[-1]
+    # Define period to match the symbol data
+    start_date = symbol_data.index[0]
+    end_date = symbol_data.index[-1]
+    
+    # First get all the external data at once
+    reference_symbols = list(GLOBAL_INDICES.keys()) + list(COMMODITIES_BONDS.keys())
+    
+    # Download data for all reference assets
+    all_ref_data = {}
+    
+    logger.info(f"Downloading reference data for intermarket analysis of {symbol}")
+    
+    for ref_chunk in [reference_symbols[i:i+10] for i in range(0, len(reference_symbols), 10)]:
+        chunk_data = yf.download(
+            ref_chunk, 
+            start=start_date, 
+            end=end_date, 
+            progress=False,
+            group_by='ticker'
+        )
         
-        # First get all the external data at once
-        reference_symbols = list(GLOBAL_INDICES.keys()) + list(COMMODITIES_BONDS.keys())
+        # Process each symbol in the chunk
+        for ref_symbol in ref_chunk:
+            if ref_symbol in chunk_data:
+                # For each ticker, extract the Close prices
+                if isinstance(chunk_data[ref_symbol], pd.DataFrame) and 'Close' in chunk_data[ref_symbol]:
+                    all_ref_data[ref_symbol] = chunk_data[ref_symbol]['Close']
         
-        # Download data for all reference assets
-        all_ref_data = {}
-        
-        logger.info(f"Downloading reference data for intermarket analysis of {symbol}")
-        
-        for ref_chunk in [reference_symbols[i:i+10] for i in range(0, len(reference_symbols), 10)]:
-            try:
-                chunk_data = yf.download(
-                    ref_chunk, 
-                    start=start_date, 
-                    end=end_date, 
-                    progress=False,
-                    group_by='ticker'
-                )
-                
-                # Process each symbol in the chunk
-                for ref_symbol in ref_chunk:
-                    if ref_symbol in chunk_data:
-                        # For each ticker, extract the Close prices
-                        if isinstance(chunk_data[ref_symbol], pd.DataFrame) and 'Close' in chunk_data[ref_symbol]:
-                            all_ref_data[ref_symbol] = chunk_data[ref_symbol]['Close']
-                
-                # Sleep to avoid rate limiting
-                time.sleep(1)
-                
-            except Exception as e:
-                logger.warning(f"Error downloading chunk of reference data: {e}")
-        
-        # Get symbol's close prices
-        symbol_close = symbol_data['Close']
-        
-        # Calculate correlations for different reference types
-        for ref_symbol, ref_name in GLOBAL_INDICES.items():
-            if ref_symbol in all_ref_data:
-                correlations['indices'].update(
+        # Sleep to avoid rate limiting
+        time.sleep(1)
+    
+    # Get symbol's close prices
+    symbol_close = symbol_data['Close']
+    
+    # Calculate correlations for different reference types
+    for ref_symbol, ref_name in GLOBAL_INDICES.items():
+        if ref_symbol in all_ref_data:
+            correlations['indices'].update(
+                _calculate_correlation_metrics(symbol_close, all_ref_data[ref_symbol], ref_name)
+            )
+    
+    for ref_symbol, ref_name in COMMODITIES_BONDS.items():
+        if ref_symbol in all_ref_data:
+            if 'Gold' in ref_name or 'Silver' in ref_name or 'Oil' in ref_name:
+                correlations['commodities'].update(
                     _calculate_correlation_metrics(symbol_close, all_ref_data[ref_symbol], ref_name)
                 )
-        
-        for ref_symbol, ref_name in COMMODITIES_BONDS.items():
-            if ref_symbol in all_ref_data:
-                if 'Gold' in ref_name or 'Silver' in ref_name or 'Oil' in ref_name:
-                    correlations['commodities'].update(
-                        _calculate_correlation_metrics(symbol_close, all_ref_data[ref_symbol], ref_name)
-                    )
-                else:
-                    correlations['bonds_fx'].update(
-                        _calculate_correlation_metrics(symbol_close, all_ref_data[ref_symbol], ref_name)
-                    )
-        
-        # Calculate correlation stability metrics
-        correlations['correlation_stability'] = _calculate_correlation_stability(
-            symbol_close, 
-            {k: all_ref_data[k] for k in ['^NSEI', '^GSPC', 'GC=F', '^TNX'] if k in all_ref_data}
-        )
-        
-        # Calculate correlations under different market regimes
-        correlations['macro_regime_correlations'] = _calculate_regime_correlations(
-            symbol_close,
-            {k: all_ref_data[k] for k in ['^NSEI', '^VIX', 'GC=F'] if k in all_ref_data}
-        )
-        
-    except Exception as e:
-        logger.error(f"Error calculating intermarket correlations for {symbol}: {e}")
+            else:
+                correlations['bonds_fx'].update(
+                    _calculate_correlation_metrics(symbol_close, all_ref_data[ref_symbol], ref_name)
+                )
+    
+    # Calculate correlation stability metrics
+    correlations['correlation_stability'] = _calculate_correlation_stability(
+        symbol_close, 
+        {k: all_ref_data[k] for k in ['^NSEI', '^GSPC', 'GC=F', '^TNX'] if k in all_ref_data}
+    )
+    
+    # Calculate correlations under different market regimes
+    correlations['macro_regime_correlations'] = _calculate_regime_correlations(
+        symbol_close,
+        {k: all_ref_data[k] for k in ['^NSEI', '^VIX', 'GC=F'] if k in all_ref_data}
+    )
     
     return correlations
 
@@ -879,11 +885,7 @@ def get_relative_strength(symbol: str, symbol_data: pd.DataFrame) -> Dict[str, A
         symbol_data: DataFrame with stock price data
     
     Returns:
-        Dictionary with relative strength metrics, including:
-        - RS vs market indices
-        - RS vs sector
-        - RS momentum and trends
-        - RS percentile rankings
+        Dictionary with relative strength metrics
     """
     rs_metrics = {
         'vs_market': {},
@@ -892,544 +894,152 @@ def get_relative_strength(symbol: str, symbol_data: pd.DataFrame) -> Dict[str, A
         'rs_ranks': {}
     }
     
-    # Use symbol data close price
+    # Input validation
     if symbol_data.empty or 'Close' not in symbol_data.columns:
         return {'error': 'No price data available'}
-            
-        stock_close = symbol_data['Close']
-        start_date = stock_close.index[0]
-        end_date = stock_close.index[-1]
         
-        # Get sector for the symbol
-        sector = SECTOR_MAPPING.get(symbol, None)
+    stock_close = symbol_data['Close']  # Convert to Series
+    start_date = stock_close.index[0]
+    end_date = stock_close.index[-1]
+    
+    # Sector mapping for common industries
+    STOCK_SECTOR_MAPPING = {
+        'RELIANCE.NS': 'Energy',
+        'HDFCBANK.NS': 'Financial Services',
+        'TCS.NS': 'IT',
+        'SUNPHARMA.NS': 'Pharma',
+        'TATAMOTORS.NS': 'Auto',
+        'ASIANPAINT.NS': 'Consumer',
+        'SBIN.NS': 'PSU Bank',
+        'TATASTEEL.NS': 'Metal',
+        'NTPC.NS': 'Energy',
+        'DLF.NS': 'Realty'
+    }
+    
+    # Map sector to index
+    SECTOR_TO_INDEX = {
+        'Energy': '^CNXENERGY',
+        'Financial Services': '^CNXFINANCE',
+        'IT': '^CNXIT',
+        'Pharma': '^CNXPHARMA',
+        'Auto': '^CNXAUTO',
+        'Consumer': '^CNXCONSUM',
+        'PSU Bank': '^CNXPSUBANK',
+        'Metal': '^CNXMETAL',
+        'Realty': '^CNXREALTY',
+        'Media': '^CNXMEDIA'
+    }
+    
+    # Get sector for the symbol
+    sector = STOCK_SECTOR_MAPPING.get(symbol, None)
+    sector_index = SECTOR_TO_INDEX.get(sector, None) if sector else None
+    
+    # Download Nifty 50 data for market comparison
+    nifty_data = yf.download(
+        "^NSEI",
+        start=start_date,
+        end=end_date,
+        progress=False
+    )
+    
+    if not nifty_data.empty and 'Close' in nifty_data.columns:
+        # Calculate RS vs Nifty 50
+        rs_metrics['vs_market'] = calculate_market_rs(stock_close, nifty_data['Close'])
         
-        # Download Nifty and sector index data
-        index_symbols = ['^NSEI']  # Nifty 50
+        # Calculate RS momentum metrics
+        from relative_strength import calculate_relative_strength_rolling
+        st_mom = calculate_relative_strength_rolling(stock_close, nifty_data['Close'], window=21)
+        rs_metrics['rs_momentum'] = {
+            'market_momentum_1m': float(st_mom.iloc[-1]) if not st_mom.empty else 0.0
+        }
         
-        # Add sector index if available
-        sector_index = None
-        if sector:
-            sector_map = {
-                'FINANCIAL SERVICES': '^CNXFINANCE',
-                'IT': '^CNXIT',
-                'PHARMA': '^CNXPHARMA',
-                'HEALTHCARE': '^CNXPHARMA',
-                'AUTOMOBILE': '^CNXAUTO',
-                'CONSUMER GOODS': '^CNXFMCG',
-                'METALS': '^CNXMETAL',
-                'ENERGY': '^CNXENERGY',
-                'CONSTRUCTION': '^CNXREALTY',
-                'REALTY': '^CNXREALTY'
+        # Calculate RS rankings
+        rs_3m = calculate_relative_strength_rolling(stock_close, nifty_data['Close'], window=63)
+        rs_6m = calculate_relative_strength_rolling(stock_close, nifty_data['Close'], window=126)
+        rs_1y = calculate_relative_strength_rolling(stock_close, nifty_data['Close'], window=252)
+        
+        # Ensure we have valid ranking values
+        if not rs_3m.empty and not rs_6m.empty and not rs_1y.empty:
+            rs_metrics['rs_ranks'] = {
+                'rs_rank_3m': float(rs_3m.rank(pct=True).iloc[-1]),
+                'rs_rank_6m': float(rs_6m.rank(pct=True).iloc[-1]),
+                'rs_rank_1y': float(rs_1y.rank(pct=True).iloc[-1])
             }
-            
-            # Try to match sector to an index - ensure sector is a string or handled properly
-            sector_str = None
-            
-            if isinstance(sector, str):
-                sector_str = sector.upper()
-            elif isinstance(sector, (list, tuple)) and len(sector) > 0:
-                if isinstance(sector[0], str):
-                    sector_str = sector[0].upper()
-                else:
-                    sector_str = str(sector[0]).upper()
-            elif isinstance(sector, dict) and 'sector' in sector:
-                sector_str = str(sector['sector']).upper()
-            else:
-                # If sector is None or some other unexpected type, use a default string
-                logger.warning(f"Unexpected sector type for {symbol}: {type(sector)}")
-                sector_str = "UNKNOWN"
-                
-            # Try to match the sector string to a sector index
-            if sector_str:
-                for sector_key, index_symbol in sector_map.items():
-                    if sector_key in sector_str:
-                        sector_index = index_symbol
-                        index_symbols.append(sector_index)
-                        break
-        
-        # Download index data
-        index_data = {}
-        for idx_symbol in index_symbols:
-            if 1==1:
-                data = yf.download(
-                    idx_symbol,
-                    start=start_date,
-                    end=end_date,
-                    progress=False
-                )
-                
-                if not data.empty and 'Close' in data.columns:
-                    index_data[idx_symbol] = data['Close']
-        
-        # Calculate relative strength vs Nifty
-        if '^NSEI' in index_data:
-            nifty_close = index_data['^NSEI']
-            
-            # Align dates
-            aligned_data = pd.concat([stock_close, nifty_close], axis=1, join='inner')
-            aligned_data.columns = ['stock', 'nifty']
-            
-            if not aligned_data.empty:
-                # Normalize to starting values
-                aligned_data['stock_norm'] = aligned_data['stock'] / aligned_data['stock'].iloc[0]
-                aligned_data['nifty_norm'] = aligned_data['nifty'] / aligned_data['nifty'].iloc[0]
-                
-                # Calculate RS line (stock/index)
-                aligned_data['rs_line'] = aligned_data['stock_norm'] / aligned_data['nifty_norm']
-                
-                # Calculate RS metrics for different timeframes
-                for days in [5, 10, 21, 63, 126, 252]:
-                    if len(aligned_data) >= days:
-                        # RS over the period
-                        rs_period = aligned_data['rs_line'].iloc[-1] / aligned_data['rs_line'].iloc[-min(days, len(aligned_data))]
-                        rs_metrics['vs_market'][f'rs_{days}d'] = rs_period
-                
-                # RS new highs/lows
-                if len(aligned_data) >= 20:
-                    rs_new_high_20d = aligned_data['rs_line'].iloc[-1] >= aligned_data['rs_line'].tail(20).max()
-                    rs_new_low_20d = aligned_data['rs_line'].iloc[-1] <= aligned_data['rs_line'].tail(20).min()
-                    rs_metrics['vs_market']['rs_new_high_20d'] = rs_new_high_20d
-                    rs_metrics['vs_market']['rs_new_low_20d'] = rs_new_low_20d
-                
-                # RS slope
-                if len(aligned_data) >= 10:
-                    rs_slope = np.polyfit(range(10), aligned_data['rs_line'].tail(10).values, 1)[0]
-                    rs_metrics['vs_market']['rs_slope_10d'] = rs_slope
-                
-                # Add current RS value
-                rs_metrics['vs_market']['rs_current'] = aligned_data['rs_line'].iloc[-1]
-                
-                # Add RS momentum (rate of change)
-                if len(aligned_data) >= 14:
-                    rs_metrics['rs_momentum']['rs_roc_14d'] = (
-                        aligned_data['rs_line'].pct_change(periods=14).iloc[-1] * 100
-                    )
-        
-        # Calculate relative strength vs sector
-        if sector_index and sector_index in index_data:
-            sector_close = index_data[sector_index]
-            
-            # Align dates
-            sector_aligned = pd.concat([stock_close, sector_close], axis=1, join='inner')
-            sector_aligned.columns = ['stock', 'sector']
-            
-            if not sector_aligned.empty:
-                # Normalize to starting values
-                sector_aligned['stock_norm'] = sector_aligned['stock'] / sector_aligned['stock'].iloc[0]
-                sector_aligned['sector_norm'] = sector_aligned['sector'] / sector_aligned['sector'].iloc[0]
-                
-                # Calculate RS line (stock/sector)
-                sector_aligned['rs_sector'] = sector_aligned['stock_norm'] / sector_aligned['sector_norm']
-                
-                # Calculate RS metrics for different timeframes
-                for days in [5, 10, 21, 63, 126, 252]:
-                    if len(sector_aligned) >= days:
-                        # RS over the period
-                        rs_period = sector_aligned['rs_sector'].iloc[-1] / sector_aligned['rs_sector'].iloc[-min(days, len(sector_aligned))]
-                        rs_metrics['vs_sector'][f'rs_sector_{days}d'] = rs_period
-                
-                # Add current RS value
-                rs_metrics['vs_sector']['rs_sector_current'] = sector_aligned['rs_sector'].iloc[-1]
-        
-        # Calculate RS ranks (percentile ranking against Nifty 500)
-        # This would typically be done with a database of all stocks
-        # Here we approximate using the information we have
-        rs_metrics['rs_ranks']['rs_rank_vs_market'] = np.random.randint(1, 100)  # Placeholder
-        rs_metrics['rs_ranks']['rs_rank_vs_sector'] = np.random.randint(1, 100)  # Placeholder
-        
-    return rs_metrics
-    try:
-        # Download data
-        stock = yf.Ticker(symbol)
-        df = stock.history(start=start_date, end=end_date)
-        if df.empty:
-            logger.warning(f"No data found for {symbol}")
-            return None
-            
-        # Add symbol
-        df['Symbol'] = symbol
-        
-        # 1. Trend Indicators
-        # Moving Averages and Combinations
-        for period in [5, 8, 10, 13, 20, 30, 50, 100, 200]:
-            df[f'SMA{period}'] = df['Close'].rolling(window=period).mean()
-            df[f'EMA{period}'] = df['Close'].ewm(span=period, adjust=False).mean()
-            df[f'HMA{period}'] = df['Close'].rolling(window=period//2).mean() * 2 - df['Close'].rolling(window=period).mean()
-            
-        # Moving Average Crosses
-        df['Golden_Cross'] = (df['SMA50'] > df['SMA200']).astype(int)
-        df['Death_Cross'] = (df['SMA50'] < df['SMA200']).astype(int)
-        
-        # MACD and Variants
-        df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
-        df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
-        df['MACD'] = df['EMA12'] - df['EMA26']
-        df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-        df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
-        df['MACD_Pct'] = df['MACD'] / df['Close'] * 100
-        
-        # ADX and DMI Components
-        high_low = df['High'] - df['Low']
-        high_close = abs(df['High'] - df['Close'].shift())
-        low_close = abs(df['Low'] - df['Close'].shift())
-        ranges = pd.concat([high_low, high_close, low_close], axis=1)
-        true_range = ranges.max(axis=1)
-        df['ATR'] = true_range.rolling(14).mean()
-        
-        plus_dm = df['High'].diff()
-        minus_dm = df['Low'].diff()
-        plus_dm[plus_dm < 0] = 0
-        minus_dm[minus_dm > 0] = 0
-        
-        tr14 = true_range.rolling(14).sum()
-        df['DI_Plus'] = 100 * (plus_dm.rolling(14).sum() / tr14)
-        df['DI_Minus'] = abs(100 * (minus_dm.rolling(14).sum() / tr14))
-        df['ADX'] = 100 * abs(df['DI_Plus'] - df['DI_Minus']) / (df['DI_Plus'] + df['DI_Minus'])
-        df['ADX_Trend'] = np.where(df['ADX'] > 25, 'Strong', 'Weak')
-        
-        # Ichimoku Cloud
-        high_9 = df['High'].rolling(window=9).max()
-        low_9 = df['Low'].rolling(window=9).min()
-        df['Ichimoku_Conversion'] = (high_9 + low_9) / 2
-        
-        high_26 = df['High'].rolling(window=26).max()
-        low_26 = df['Low'].rolling(window=26).min()
-        df['Ichimoku_Base'] = (high_26 + low_26) / 2
-        
-        df['Ichimoku_SpanA'] = ((df['Ichimoku_Conversion'] + df['Ichimoku_Base']) / 2).shift(26)
-        
-        high_52 = df['High'].rolling(window=52).max()
-        low_52 = df['Low'].rolling(window=52).min()
-        df['Ichimoku_SpanB'] = ((high_52 + low_52) / 2).shift(26)
-        
-        df['Ichimoku_Lagging'] = df['Close'].shift(-26)
-        
-        # Parabolic SAR
-        periods = len(df)
-        acceleration = 0.02
-        maximum = 0.2
-        sar = df['Close'].copy()
-        direction = 1
-        ep = df['Low'][0]
-        af = acceleration
-        
-        for i in range(2, periods):
-            temp_sar = sar[i-1] + af * (ep - sar[i-1])
-            if direction == 1:
-                if temp_sar > df['Low'].iloc[i]:
-                    direction = -1
-                    temp_sar = max(df['High'].iloc[i-2:i+1])
-                    ep = df['Low'].iloc[i]
-                    af = acceleration
-            else:
-                if temp_sar < df['High'].iloc[i]:
-                    direction = 1
-                    temp_sar = min(df['Low'].iloc[i-2:i+1])
-                    ep = df['High'].iloc[i]
-                    af = acceleration
-            
-            if direction == 1:
-                if df['High'].iloc[i] > ep:
-                    ep = df['High'].iloc[i]
-                    af = min(af + acceleration, maximum)
-            else:
-                if df['Low'].iloc[i] < ep:
-                    ep = df['Low'].iloc[i]
-                    af = min(af + acceleration, maximum)
-                    
-            sar[i] = temp_sar
-            
-        df['PSAR'] = sar
-        df['PSAR_Direction'] = np.where(df['PSAR'] < df['Close'], 1, -1)
-        
-        # 2. Momentum Indicators
-        # RSI and Variants
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0))
-        loss = (-delta.where(delta < 0, 0))
-        
-        # Standard RSI
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
-        rs = avg_gain / avg_loss
-        df['RSI'] = 100 - (100 / (1 + rs))
-        
-        # Stochastic RSI
-        rsi = df['RSI']
-        df['Stoch_RSI'] = (rsi - rsi.rolling(14).min()) / (rsi.rolling(14).max() - rsi.rolling(14).min())
-        df['Stoch_RSI_K'] = df['Stoch_RSI'].rolling(3).mean() * 100
-        df['Stoch_RSI_D'] = df['Stoch_RSI_K'].rolling(3).mean()
-        
-        # Multi-timeframe RSI
-        for period in [2, 5, 14, 21]:
-            avg_gain = gain.rolling(window=period).mean()
-            avg_loss = loss.rolling(window=period).mean()
-            rs = avg_gain / avg_loss
-            df[f'RSI_{period}'] = 100 - (100 / (1 + rs))
-        
-        # Stochastic Oscillator with Multiple Timeframes
-        for period in [14, 21, 50]:
-            low_p = df['Low'].rolling(window=period).min()
-            high_p = df['High'].rolling(window=period).max()
-            df[f'STOCH_K_{period}'] = 100 * (df['Close'] - low_p) / (high_p - low_p)
-            df[f'STOCH_D_{period}'] = df[f'STOCH_K_{period}'].rolling(window=3).mean()
-            
-        # Rate of Change (ROC)
-        for period in [5, 10, 20, 50]:
-            df[f'ROC_{period}'] = (df['Close'] - df['Close'].shift(period)) / df['Close'].shift(period) * 100
-        
-        # CCI with Multiple Timeframes
-        tp = (df['High'] + df['Low'] + df['Close']) / 3
-        for period in [14, 20, 50]:
-            ma_tp = tp.rolling(window=period).mean()
-            md_tp = (abs(tp - ma_tp)).rolling(window=period).mean()
-            df[f'CCI_{period}'] = (tp - ma_tp) / (0.015 * md_tp)
-            
-        # Williams %R
-        for period in [14, 28]:
-            highest_high = df['High'].rolling(window=period).max()
-            lowest_low = df['Low'].rolling(window=period).min()
-            df[f'WILLR_{period}'] = -100 * (highest_high - df['Close']) / (highest_high - lowest_low)
-        
-        # 3. Volatility Indicators
-        # Bollinger Bands with Multiple Timeframes/Deviations
-        for period in [10, 20, 50]:
-            for std_dev in [2.0, 2.5, 3.0]:
-                bb_ma = df['Close'].rolling(window=period).mean()
-                bb_std = df['Close'].rolling(window=period).std()
-                df[f'BB_upper_{period}_{int(std_dev*10)}'] = bb_ma + (bb_std * std_dev)
-                df[f'BB_middle_{period}'] = bb_ma
-                df[f'BB_lower_{period}_{int(std_dev*10)}'] = bb_ma - (bb_std * std_dev)
-                df[f'BB_width_{period}'] = (df[f'BB_upper_{period}_{int(std_dev*10)}'] - 
-                                          df[f'BB_lower_{period}_{int(std_dev*10)}']) / df[f'BB_middle_{period}']
-                df[f'BB_%B_{period}'] = (df['Close'] - df[f'BB_lower_{period}_{int(std_dev*10)}']) / \
-                                      (df[f'BB_upper_{period}_{int(std_dev*10)}'] - df[f'BB_lower_{period}_{int(std_dev*10)}'])
-        
-        # Keltner Channels with Multiple Timeframes
-        for period in [10, 20, 50]:
-            df[f'KC_middle_{period}'] = df['Close'].rolling(window=period).mean()
-            df[f'KC_upper_{period}'] = df[f'KC_middle_{period}'] + (df['ATR'] * 2)
-            df[f'KC_lower_{period}'] = df[f'KC_middle_{period}'] - (df['ATR'] * 2)
-            df[f'KC_width_{period}'] = (df[f'KC_upper_{period}'] - df[f'KC_lower_{period}']) / df[f'KC_middle_{period}']
-            
-        # Volatility Ratios and Regimes
-        df['Historical_Vol'] = df['Close'].pct_change().rolling(window=21).std() * np.sqrt(252)
-        df['Volatility_MA'] = df['Historical_Vol'].rolling(window=50).mean()
-        df['Volatility_Regime'] = np.where(df['Historical_Vol'] > df['Volatility_MA'] * 1.2, 'High',
-                                         np.where(df['Historical_Vol'] < df['Volatility_MA'] * 0.8, 'Low', 'Normal'))
-        
-        # Squeeze Momentum Indicator
-        bb_ma = df['Close'].rolling(window=20).mean()
-        bb_std = df['Close'].rolling(window=20).std()
-        bb_upper = bb_ma + (bb_std * 2)
-        bb_lower = bb_ma - (bb_std * 2)
-        
-        kc_ma = df['Close'].rolling(window=20).mean()
-        kc_range = df['ATR'].rolling(window=20).mean()
-        kc_upper = kc_ma + (kc_range * 1.5)
-        kc_lower = kc_ma - (kc_range * 1.5)
-        
-        df['Squeeze_On'] = (bb_upper < kc_upper) & (bb_lower > kc_lower)
-        df['Squeeze_Off'] = ~df['Squeeze_On']
-        
-        # 4. Volume Indicators and Analysis
-        # OBV and Variants
-        df['OBV'] = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
-        df['OBV_EMA'] = df['OBV'].ewm(span=20).mean()
-        df['OBV_ROC'] = df['OBV'].pct_change(periods=5) * 100
-        
-        # VWAP and Variants
-        for period in [1, 5, 21]:  # Daily, Weekly, Monthly
-            df[f'VWAP_{period}'] = (df['Close'] * df['Volume']).rolling(period).sum() / df['Volume'].rolling(period).sum()
-            
-        # Volume Profile
-        price_buckets = pd.qcut(df['Close'], q=10, labels=False)
-        volume_profile = df.groupby(price_buckets)['Volume'].sum()
-        df['Volume_POC'] = price_buckets.map(volume_profile.idxmax())  # Point of Control
-        
-        # Volume Ratios and Analysis
-        df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
-        df['Volume_Ratio'] = df['Volume'] / df['Volume_SMA']
-        df['Volume_ROC'] = df['Volume'].pct_change(periods=1) * 100
-        df['Volume_Trend'] = np.where(df['Volume_Ratio'] > 1.5, 'High',
-                                    np.where(df['Volume_Ratio'] < 0.5, 'Low', 'Normal'))
-        
-        # Money Flow Index with Multiple Timeframes
-        typical_price = (df['High'] + df['Low'] + df['Close']) / 3
-        money_flow = typical_price * df['Volume']
-        
-        for period in [14, 28, 50]:
-            pos_flow = money_flow.where(typical_price > typical_price.shift(1), 0).rolling(period).sum()
-            neg_flow = money_flow.where(typical_price < typical_price.shift(1), 0).rolling(period).sum()
-            mf_ratio = pos_flow / neg_flow
-            df[f'MFI_{period}'] = 100 - (100 / (1 + mf_ratio))
-        
-        # Enhanced Chaikin Money Flow
-        mf_multiplier = ((df['Close'] - df['Low']) - (df['High'] - df['Close'])) / (df['High'] - df['Low'])
-        mf_volume = mf_multiplier * df['Volume']
-        for period in [10, 20, 50]:
-            df[f'CMF_{period}'] = mf_volume.rolling(period).sum() / df['Volume'].rolling(period).sum()
-            
-        # Volume-Price Correlation
-        df['Vol_Price_Corr'] = df['Close'].rolling(20).corr(df['Volume'])
-        
-        # Volume Zone Oscillator
-        ma_volume = df['Volume'].rolling(window=5).mean()
-        vol_z_score = (df['Volume'] - ma_volume) / df['Volume'].rolling(window=5).std()
-        df['VZO'] = vol_z_score.rolling(window=5).mean()
-        
-        # Accumulation/Distribution Line
-        df['ADL'] = ((2 * df['Close'] - df['High'] - df['Low']) / (df['High'] - df['Low'])) * df['Volume']
-        df['ADL'] = df['ADL'].cumsum()
-        
-        # 5. Market Regime and Pattern Recognition
-        # Hurst Exponent (Trend vs Mean Reversion)
-        def hurst(ts, lags=range(2, 100)):
-            tau = []; lagvec = []
-            for lag in lags:
-                tau.append(np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))))
-                lagvec.append(lag)
-            m = np.polyfit(np.log10(lagvec), np.log10(tau), 1)
-            hurst = m[0] if not np.isnan(m[0]) else 0.5
-            return hurst
-
-        df['Hurst'] = df['Close'].rolling(window=100).apply(
-            lambda x: hurst(x.values), raw=False
+    
+    # Calculate sector relative strength if sector index is available
+    if sector_index:
+        sector_data = yf.download(
+            sector_index,
+            start=start_date,
+            end=end_date,
+            progress=False
         )
-        df['Market_Type'] = np.where(df['Hurst'] > 0.6, 'Trending',
-                                   np.where(df['Hurst'] < 0.4, 'Mean_Reverting', 'Random'))
         
-        # Cycle Indicators
-        # Ehlers' Hilbert Transform Dominant Cycle Period
-        smooth = (df['Close'] + 2*df['Close'].shift(1) + 2*df['Close'].shift(2) + df['Close'].shift(3))/6
-        detrender = (0.0962*smooth + 0.5769*smooth.shift(2) - 0.5769*smooth.shift(4) - 0.0962*smooth.shift(6))*(0.075*df['Close'].pct_change().rolling(20).std())
-        q1 = (0.0962*detrender + 0.5769*detrender.shift(2) - 0.5769*detrender.shift(4) - 0.0962*detrender.shift(6))*0.075
-        i1 = detrender.shift(3)
-        df['Cycle_Period'] = np.where((q1**2 + i1**2) > 0, 
-                                    2*np.pi/np.arctan2(q1, i1).abs(), 
-                                    0)
-        
-        # Mesa Sine Wave
-        df['Mesa_Sine'] = np.sin(2*np.pi*np.arange(len(df))/df['Cycle_Period'])
-        df['Mesa_LeadSine'] = np.sin(2*np.pi*np.arange(len(df))/df['Cycle_Period'] + np.pi/4)
-        
-        # Pattern Recognition
-        # Support and Resistance
-        def find_peaks(series, window=20):
-            peaks = []
-            for i in range(window, len(series)-window):
-                if series.iloc[i] == max(series.iloc[i-window:i+window+1]):
-                    peaks.append(series.iloc[i])
-                elif series.iloc[i] == min(series.iloc[i-window:i+window+1]):
-                    peaks.append(series.iloc[i])
-            return peaks if peaks else [series.mean()]
-            
-        df['Support_Level'] = pd.Series(find_peaks(df['Low'])).rolling(20).min()
-        df['Resistance_Level'] = pd.Series(find_peaks(df['High'])).rolling(20).max()
-        
-        # Gap Analysis
-        df['Gap_Up'] = df['Low'] > df['High'].shift(1)
-        df['Gap_Down'] = df['High'] < df['Low'].shift(1)
-        df['Gap_Size'] = np.where(df['Gap_Up'], df['Low'] - df['High'].shift(1),
-                                np.where(df['Gap_Down'], df['High'] - df['Low'].shift(1), 0))
-        
-        # Performance Metrics
-        # Returns across timeframes
-        for period in [1, 5, 10, 21, 63, 126, 252]:  # Daily to Annual
-            df[f'Return_{period}d'] = df['Close'].pct_change(periods=period)
-            df[f'Vol_{period}d'] = df[f'Return_{period}d'].rolling(window=period).std() * np.sqrt(252/period)
-            
-        # Risk Metrics
-        # Value at Risk (VaR) and Conditional VaR (CVaR/Expected Shortfall)
-        for conf_level in [0.95, 0.99]:
-            df[f'VaR_{int(conf_level*100)}'] = df['Daily_Return'].rolling(window=252).quantile(1-conf_level)
-            df[f'CVaR_{int(conf_level*100)}'] = df['Daily_Return'].rolling(window=252).apply(
-                lambda x: x[x <= x.quantile(1-conf_level)].mean()
-            )
-            
-        # Maximum Drawdown and Recovery Metrics
-        df['Drawdown'] = (df['Close'] / df['Close'].cummax() - 1)
-        df['Max_Drawdown'] = df['Drawdown'].rolling(window=252).min()
-        df['Days_in_Drawdown'] = df['Drawdown'].apply(lambda x: 0 if x >= 0 else 1).rolling(252).sum()
-        
-        # Sortino Ratio
-        risk_free_rate = 0.03/252  # Assuming 3% annual risk-free rate
-        excess_returns = df['Daily_Return'] - risk_free_rate
-        downside_returns = np.where(df['Daily_Return'] < 0, df['Daily_Return'], 0)
-        df['Sortino_Ratio'] = (excess_returns.rolling(252).mean() * 252) / \
-                             (np.sqrt(np.mean(downside_returns**2)) * np.sqrt(252))
-        
-        # Clean up any missing values and ensure data quality
-        df = df.fillna(method='ffill')
-        df = df.fillna(method='bfill')
-        df = df.replace([np.inf, -np.inf], np.nan)
-        df = df.fillna(0)
+        if not sector_data.empty and 'Close' in sector_data.columns:
+            logger.info(f"Calculating sector RS for {symbol} against {sector_index}")
+            rs_metrics['vs_sector'] = calculate_sector_rs(stock_close, sector_data['Close'])
+    
+    return rs_metrics
 
-        # 6. Candlestick Patterns
-        # Single Candlestick Patterns
-        df['DOJI'] = talib.CDLDOJI(df['Open'], df['High'], df['Low'], df['Close'])
-        df['HAMMER'] = talib.CDLHAMMER(df['Open'], df['High'], df['Low'], df['Close'])
-        df['SHOOTING_STAR'] = talib.CDLSHOOTINGSTAR(df['Open'], df['High'], df['Low'], df['Close'])
-        df['SPINNING_TOP'] = talib.CDLSPINNINGTOP(df['Open'], df['High'], df['Low'], df['Close'])
+def calculate_market_rs(stock_prices: Union[pd.Series, pd.DataFrame], market_prices: Union[pd.Series, pd.DataFrame]) -> Dict[str, float]:
+    """Calculate relative strength metrics against market index"""
+    from relative_strength import calculate_relative_strength_metrics
+    
+    # Ensure we have Series objects
+    if isinstance(stock_prices, pd.DataFrame):
+        if 'Close' not in stock_prices.columns:
+            return {'rs_cumulative': 0.0, 'rs_rolling_3m': 0.0, 'rs_momentum_1y': 0.0}
+        stock_prices = stock_prices['Close']
+    
+    if isinstance(market_prices, pd.DataFrame):
+        if 'Close' not in market_prices.columns:
+            return {'rs_cumulative': 0.0, 'rs_rolling_3m': 0.0, 'rs_momentum_1y': 0.0}
+        market_prices = market_prices['Close']
+    
+    # Additional validation
+    if not isinstance(stock_prices, pd.Series) or not isinstance(market_prices, pd.Series):
+        return {'rs_cumulative': 0.0, 'rs_rolling_3m': 0.0, 'rs_momentum_1y': 0.0}
+    
+    # Ensure both Series have data
+    if stock_prices.empty or market_prices.empty:
+        return {'rs_cumulative': 0.0, 'rs_rolling_3m': 0.0, 'rs_momentum_1y': 0.0}
+    
+    rs_market = calculate_relative_strength_metrics(
+        stock_prices,
+        market_prices,
+        window_sizes={'roll': 63, 'mom': 252}  # 3 months and 1 year windows
+    )
+    
+    return {
+        'rs_cumulative': rs_market.get('RS_CUM_MARKET', 0.0),
+        'rs_rolling_3m': rs_market.get('RS_ROLL_MARKET', 0.0),
+        'rs_momentum_1y': rs_market.get('RS_MOM_MARKET', 0.0)
+    }
 
-        # Double Candlestick Patterns
-        df['ENGULFING'] = talib.CDLENGULFING(df['Open'], df['High'], df['Low'], df['Close'])
-        df['HARAMI'] = talib.CDLHARAMI(df['Open'], df['High'], df['Low'], df['Close'])
-        df['PIERCING_LINE'] = talib.CDLPIERCING(df['Open'], df['High'], df['Low'], df['Close'])
-        df['DARK_CLOUD_COVER'] = talib.CDLDARKCLOUDCOVER(df['Open'], df['High'], df['Low'], df['Close'])
-
-        # Triple Candlestick Patterns
-        df['MORNING_STAR'] = talib.CDLMORNINGSTAR(df['Open'], df['High'], df['Low'], df['Close'])
-        df['EVENING_STAR'] = talib.CDLEVENINGSTAR(df['Open'], df['High'], df['Low'], df['Close'])
-        df['THREE_WHITE_SOLDIERS'] = talib.CDL3WHITESOLDIERS(df['Open'], df['High'], df['Low'], df['Close'])
-        df['THREE_BLACK_CROWS'] = talib.CDL3BLACKCROWS(df['Open'], df['High'], df['Low'], df['Close'])
-
-        # Pattern Strength Index (combined signal from all patterns)
-        pattern_cols = ['DOJI', 'HAMMER', 'SHOOTING_STAR', 'SPINNING_TOP', 'ENGULFING', 
-                       'HARAMI', 'PIERCING_LINE', 'DARK_CLOUD_COVER', 'MORNING_STAR', 
-                       'EVENING_STAR', 'THREE_WHITE_SOLDIERS', 'THREE_BLACK_CROWS']
-        df['Pattern_Bull_Count'] = df[pattern_cols].apply(lambda x: sum(x > 0), axis=1)
-        df['Pattern_Bear_Count'] = df[pattern_cols].apply(lambda x: sum(x < 0), axis=1)
-        df['Pattern_Strength'] = (df['Pattern_Bull_Count'] - df['Pattern_Bear_Count']) / len(pattern_cols)
-
-        # 7. Cross-Asset and Multi-Timeframe Correlations
-        # Rolling correlations between indicators
-        indicator_pairs = [
-            ('RSI', 'STOCH_K_14'),
-            ('MACD', 'RSI'),
-            ('OBV', 'Close'),
-            ('Volume', 'Close'),
-            ('ATR', 'Historical_Vol')
-        ]
-        
-        for ind1, ind2 in indicator_pairs:
-            if ind1 in df.columns and ind2 in df.columns:
-                df[f'Corr_{ind1}_{ind2}'] = df[ind1].rolling(window=20).corr(df[ind2])
-
-        # Multi-timeframe momentum correlations
-        for period1, period2 in [(5, 20), (10, 50), (20, 100)]:
-            if f'ROC_{period1}' in df.columns and f'ROC_{period2}' in df.columns:
-                df[f'Mom_Corr_{period1}_{period2}'] = (
-                    df[f'ROC_{period1}'].rolling(window=20).corr(df[f'ROC_{period2}'])
-                )
-
-        # Volume-Price Impact
-        df['Vol_Price_Impact'] = (df['Close'] - df['Open']) * df['Volume_Ratio']
-        df['Vol_Price_Efficiency'] = abs(df['Close'] - df['Open']) / (df['High'] - df['Low'])
-        
-        # Correlation-based regime detection
-        if 'RSI' in df.columns and 'MACD' in df.columns and 'Volume_Ratio' in df.columns:
-            df['Indicator_Correlation'] = df[['RSI', 'MACD', 'Volume_Ratio']].rolling(20).corr().unstack().mean()
-            df['Correlation_Regime'] = np.where(df['Indicator_Correlation'] > 0.7, 'High',
-                                              np.where(df['Indicator_Correlation'] < 0.3, 'Low', 'Medium'))
-
-        return df
-
-
-
-    except Exception as e:
-        logger.error(f"Error downloading and processing data for {symbol}: {e}")
-        return None
+def calculate_sector_rs(stock_prices: pd.Series, sector_prices: pd.Series) -> Dict[str, float]:
+    """Calculate relative strength metrics against sector index"""
+    from relative_strength import calculate_relative_strength_cumulative
+    
+    # Calculate cumulative RS
+    rs_cum = calculate_relative_strength_cumulative(stock_prices, sector_prices)
+    
+    # Calculate rolling window RS
+    rs_3m = calculate_relative_strength_cumulative(
+        stock_prices[-63:],  # ~3 months
+        sector_prices[-63:]
+    )
+    
+    # Calculate momentum RS
+    rs_1y = calculate_relative_strength_cumulative(
+        stock_prices[-252:],  # ~1 year
+        sector_prices[-252:]
+    )
+    
+    return {
+        'rs_cumulative': rs_cum,
+        'rs_rolling_3m': rs_3m,
+        'rs_momentum_1y': rs_1y
+    }
 
 def download_nifty500_data(start_date: str, end_date: str, output_dir: str = "data/historical", max_symbols: int = None):
     """
@@ -1449,108 +1059,367 @@ def download_nifty500_data(start_date: str, end_date: str, output_dir: str = "da
     4. Processes in batches of 50 stocks with 30s delay between batches
     5. Saves both individual batch files and a consolidated file
     """
-    if 1==1:
-        # Create output directory if it doesn't exist
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
+    # Create output directory if it doesn't exist
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Create subdirectories for various data components
+    (output_path / "fundamentals").mkdir(exist_ok=True)
+    (output_path / "sectors").mkdir(exist_ok=True)
+    (output_path / "volatility").mkdir(exist_ok=True)
+    (output_path / "correlations").mkdir(exist_ok=True)
+    
+    # Get Nifty 500 symbols and sector data
+    symbols, sector_map, industry_map = get_nifty500_symbols()
+    
+    # Limit symbols if max_symbols is specified
+    if max_symbols is not None:
+        symbols = symbols[:max_symbols]
+        logger.info(f"Limited to processing {max_symbols} symbols for testing")
+    
+    # Process in batches with appropriate batch size and delay
+    batch_size = 5  # Small batch size to avoid rate limiting
+    total_batches = (len(symbols) + batch_size - 1) // batch_size
+    
+    all_data = []
+    
+    logger.info(f"Processing {len(symbols)} symbols in {total_batches} batches of {batch_size}")
+    
+    # Set up batch parameters
+    batch_delay = 60  # seconds between batches
+    individual_delay = 5  # seconds between individual stocks
+    retry_delay = 120  # seconds to wait before retry
+    max_retries = 3   # maximum number of retries for a batch
+    
+    # First, download sector rotation data for context
+    logger.info("Analyzing sector rotation for market context...")
+    sector_rotation_data = get_sector_rotation_metrics("NIFTY")
+    with open(output_path / "sectors" / "sector_rotation.json", 'w') as f:
+        json.dump(sector_rotation_data, f, indent=2)
+    
+    for batch_num in range(total_batches):
+        batch_start = batch_num * batch_size
+        batch_end = min((batch_num + 1) * batch_size, len(symbols))
+        batch_symbols = symbols[batch_start:batch_end]
         
-        # Get Nifty 500 symbols and sector data
-        symbols, sector_map, industry_map = get_nifty500_symbols()
+        logger.info(f"Processing batch {batch_num + 1}/{total_batches} ({batch_start} to {batch_end})")
         
-        # Limit symbols if max_symbols is specified
-        if max_symbols is not None:
-            symbols = symbols[:max_symbols]
-            logger.info(f"Limited to processing {max_symbols} symbols for testing")
+        # Implement retry mechanism for batch processing
+        retry_count = 0
+        batch_success = False
         
-        # Process in batches with appropriate batch size and delay
-        batch_size = 5  # Small batch size to avoid rate limiting
-        total_batches = (len(symbols) + batch_size - 1) // batch_size
-        
-        all_data = []
-        
-        logger.info(f"Processing {len(symbols)} symbols in {total_batches} batches of {batch_size}")
-        
-        # Set up batch parameters
-        batch_delay = 60  # seconds between batches
-        individual_delay = 5  # seconds between individual stocks
-        retry_delay = 120  # seconds to wait before retry
-        max_retries = 3   # maximum number of retries for a batch
-        for batch_num in range(total_batches):
-            batch_start = batch_num * batch_size
-            batch_end = min((batch_num + 1) * batch_size, len(symbols))
-            batch_symbols = symbols[batch_start:batch_end]
+        while not batch_success and retry_count < max_retries:
+            # Download data for current batch
+            batch_data = []
+            failed_symbols = []
             
-            logger.info(f"Processing batch {batch_num + 1}/{total_batches} ({batch_start} to {batch_end})")
-            
-            # Implement retry mechanism for batch processing
-            retry_count = 0
-            batch_success = False
-            
-            while not batch_success and retry_count < max_retries:
-                if 1==1:
-                    # Download data for current batch
-                    batch_data = []
-                    failed_symbols = []
+            for symbol in batch_symbols:
+                df = download_stock_data(symbol, start_date, end_date)
+                if df is not None and not df.empty:
+                    # Calculate sector-specific data
+                    symbol_sector = sector_map.get(symbol, None)
                     
-                    for symbol in batch_symbols:
-                        if 1==1:
-                            df = download_stock_data(symbol, start_date, end_date)
-                            if df is not None and not df.empty:
-                                batch_data.append(df)
-                                logger.info(f"Successfully downloaded data for {symbol}")
-                            else:
-                                logger.warning(f"No data returned for {symbol}")
-                                failed_symbols.append(symbol)
-                        
-                        # Add a longer delay between individual downloads to avoid rate limiting
-                        logger.info(f"Waiting {individual_delay} seconds before next symbol...")
-                        time.sleep(individual_delay)
+                    # Add sector rotation metrics for this stock
+                    sector_data = get_sector_rotation_metrics(symbol, symbol_sector)
+                    with open(output_path / "sectors" / f"{symbol.replace('.NS', '')}_sector.json", 'w') as f:
+                        json.dump(sector_data, f, indent=2)
                     
-                    # If we have data for at least half the symbols, consider the batch successful
-                    if len(batch_data) >= len(batch_symbols) / 2:
-                        batch_success = True
-                        
-                        # Log failed symbols
-                        if failed_symbols:
-                            logger.warning(f"Failed to download data for {len(failed_symbols)} symbols in batch {batch_num + 1}: {failed_symbols}")
-                    else:
-                        retry_count += 1
-                       
-                        logger.warning(f"Too many failures in batch {batch_num + 1}, retrying ({retry_count}/{max_retries})...")
-                        time.sleep(retry_delay)
-                        continue
+                    # Add volatility regime analysis
+                    from market_regime import analyze_volatility_regime
+                    vol_regime = analyze_volatility_regime(df)
+                    with open(output_path / "volatility" / f"{symbol.replace('.NS', '')}_vol_regime.json", 'w') as f:
+                        json.dump(vol_regime, f, indent=2)
                     
-                    # Combine batch data
-                    if batch_data:
-                        batch_df = pd.concat(batch_data)
-                        all_data.append(batch_df)
-                        
-                        # Save batch data
-                        batch_file = output_path / f"nifty500_data_batch_{batch_num + 1}.parquet"
-                        batch_df.to_parquet(batch_file)
-                        logger.info(f"Saved batch {batch_num + 1} to {batch_file}")
+                    batch_data.append(df)
+                    logger.info(f"Successfully downloaded data for {symbol}")
+                else:
+                    logger.warning(f"No data returned for {symbol}")
+                    failed_symbols.append(symbol)
+                
+                # Add a longer delay between individual downloads to avoid rate limiting
+                logger.info(f"Waiting {individual_delay} seconds before next symbol...")
+                time.sleep(individual_delay)
             
-            # If all retries failed, log error but continue with next batch
-            if not batch_success:
-                logger.error(f"Failed to process batch {batch_num + 1} after {max_retries} retries")
-            
-            if batch_num < total_batches - 1:
-                logger.info(f"Batch {batch_num + 1} completed. Sleeping for {batch_delay} seconds before next batch...")
-                time.sleep(batch_delay)
-        
-        # Combine all data and save
-        if all_data:
-            final_df = pd.concat(all_data)
-            final_file = output_path / "nifty500_complete.parquet"
-            final_df.to_parquet(final_file)
-            logger.info(f"Successfully saved complete dataset to {final_file}")
-            # Print summary info - use any unique identifier column that exists
-            symbol_col = None
-            for col in ['symbol', 'Symbol', 'Ticker']:
-                if col in final_df.columns:
-                    symbol_col = col
-                    break
-            if symbol_col:
-                logger.info(f"Total records: {len(final_df)}, Total symbols: {len(final_df[symbol_col].unique())}")
+            # If we have data for at least half the symbols, consider the batch successful
+            if len(batch_data) >= len(batch_symbols) / 2:
+                batch_success = True
+                
+                # Log failed symbols
+                if failed_symbols:
+                    logger.warning(f"Failed to download data for {len(failed_symbols)} symbols in batch {batch_num + 1}: {failed_symbols}")
             else:
-                logger.info(f"Total records: {len(final_df)}")
+                retry_count += 1
+                
+                logger.warning(f"Too many failures in batch {batch_num + 1}, retrying ({retry_count}/{max_retries})...")
+                time.sleep(retry_delay)
+                continue
+            
+            # Combine batch data
+            if batch_data:
+                # Calculate technical indicators for the batch
+                from technical_indicators import add_technical_indicators
+                logger.info(f"Calculating technical indicators for batch {batch_num + 1}...")
+                
+                batch_df = pd.concat(batch_data)
+                batch_df = add_technical_indicators(batch_df)
+                
+                all_data.append(batch_df)
+                
+                # Save batch data
+                batch_file = output_path / f"nifty500_data_batch_{batch_num + 1}.parquet"
+                batch_df.to_parquet(batch_file)
+                logger.info(f"Saved batch {batch_num + 1} to {batch_file}")
+        
+        # If all retries failed, log error but continue with next batch
+        if not batch_success:
+            logger.error(f"Failed to process batch {batch_num + 1} after {max_retries} retries")
+        
+        if batch_num < total_batches - 1:
+            logger.info(f"Batch {batch_num + 1} completed. Sleeping for {batch_delay} seconds before next batch...")
+            time.sleep(batch_delay)
+    
+    # Combine all data and save
+    if all_data:
+        final_df = pd.concat(all_data)
+        final_file = output_path / "nifty500_complete.parquet"
+        final_df.to_parquet(final_file)
+        logger.info(f"Successfully saved complete dataset to {final_file}")
+        # Print summary info - use any unique identifier column that exists
+        symbol_col = None
+        for col in ['symbol', 'Symbol', 'Ticker']:
+            if col in final_df.columns:
+                symbol_col = col
+                break
+        if symbol_col:
+            logger.info(f"Total records: {len(final_df)}, Total symbols: {len(final_df[symbol_col].unique())}")
+        else:
+            logger.info(f"Total records: {len(final_df)}")
+            
+    # Create a data summary file
+    create_data_summary(output_path, symbols)
+    
+    # Combine all data and save
+    if all_data:
+        final_df = pd.concat(all_data)
+        final_file = output_path / "nifty500_complete.parquet"
+        final_df.to_parquet(final_file)
+        logger.info(f"Successfully saved complete dataset to {final_file}")
+        # Print summary info - use any unique identifier column that exists
+        symbol_col = None
+        for col in ['symbol', 'Symbol', 'Ticker']:
+            if col in final_df.columns:
+                symbol_col = col
+                break
+        if symbol_col:
+            logger.info(f"Total records: {len(final_df)}, Total symbols: {len(final_df[symbol_col].unique())}")
+        else:
+            logger.info(f"Total records: {len(final_df)}")
+
+def create_data_summary(output_path: Path, symbols: List[str]) -> None:
+    """
+    Create a comprehensive data summary file documenting the pipeline execution
+    
+    Args:
+        output_path: Path where data files are stored
+        symbols: List of symbols processed
+    """
+    summary_file = output_path / "data_summary.txt"
+    
+    with open(summary_file, 'w') as f:
+        f.write("Nifty 500 Data Pipeline Summary\n")
+        f.write("=" * 40 + "\n\n")
+        f.write(f"Execution Date: {datetime.datetime.now().isoformat()}\n")
+        f.write(f"Total Symbols Processed: {len(symbols)}\n")
+        f.write(f"Output Directory: {output_path}\n\n")
+        
+        # List generated files
+        f.write("Generated Files:\n")
+        f.write("-" * 20 + "\n")
+        for file_path in output_path.glob("*.parquet"):
+            f.write(f"- {file_path.name}\n")
+        
+        f.write("\nData Components:\n")
+        f.write("-" * 20 + "\n")
+        f.write("- Historical price data (OHLCV)\n")
+        f.write("- 17+ technical indicators with candlestick patterns\n")
+        f.write("- Fundamental metrics and ratios\n")
+        f.write("- News sentiment analysis\n")
+        f.write("- Relative strength calculations\n")
+        f.write("- Market regime analysis\n")
+        f.write("- Sector rotation metrics\n")
+        f.write("- Intermarket correlations\n")
+        f.write("- Option chain data (when available)\n")
+        f.write("- Institutional ownership data\n")
+        
+        f.write(f"\nFirst 10 Symbols:\n")
+        f.write("-" * 20 + "\n")
+        for symbol in symbols[:10]:
+            f.write(f"- {symbol}\n")
+        
+    logger.info(f"Data summary saved to {summary_file}")
+
+def get_sector_rotation_metrics(symbol: str, sector: str = None) -> Dict[str, Any]:
+    """
+    Calculate sector rotation metrics and performance rankings
+    
+    Args:
+        symbol: Stock symbol (with .NS suffix for Indian stocks)
+        sector: Sector name if known, otherwise will be looked up
+        
+    Returns:
+        Dictionary containing sector rotation metrics and rankings
+    """
+    # Define timeframes for analysis
+    timeframes = {
+        '1w': 5,    # 1 week (5 trading days)
+        '1m': 21,   # 1 month (21 trading days)
+        '3m': 63,   # 3 months (63 trading days)
+        '6m': 126,  # 6 months (126 trading days)
+        '1y': 252   # 1 year (252 trading days)
+    }
+    
+    # Get sector information if not provided
+    if sector is None:
+        ticker = yf.Ticker(symbol)
+        sector = ticker.info.get('sector', 'Unknown')
+    
+    # Load Indian sector indices
+    sector_performance = {}
+    end_date = datetime.datetime.now()
+    start_date = end_date - datetime.timedelta(days=365)  # 1 year history
+    
+    # Download data for all sector indices
+    all_indices_data = {}
+    for idx_symbol, idx_name in INDIAN_SECTOR_INDICES.items():
+        idx = yf.Ticker(idx_symbol)
+        idx_data = idx.history(start=start_date, end=end_date)
+        if not idx_data.empty:
+            all_indices_data[idx_name] = idx_data
+            logger.debug(f"Downloaded {len(idx_data)} days for {idx_name}")
+    
+    # Download Nifty 50 as benchmark
+    nifty_data = None
+    if 'Nifty 50' in all_indices_data:
+        nifty_data = all_indices_data['Nifty 50']
+    else:
+        nifty = yf.Ticker('^NSEI')
+        nifty_data = nifty.history(start=start_date, end=end_date)
+        logger.debug(f"Downloaded {len(nifty_data)} days for Nifty 50")
+    
+    # Download stock data
+    stock_data = None
+    stock = yf.Ticker(symbol)
+    stock_data = stock.history(start=start_date, end=end_date)
+    logger.debug(f"Downloaded {len(stock_data)} days for {symbol}")
+    
+    # Calculate sector performance for each timeframe
+    timeframe_performance = {}
+    timeframe_leaders = {}
+    sectors_ranked = {}
+    
+    for timeframe_name, days in timeframes.items():
+        # Calculate returns for all sectors
+        sector_returns = {}
+        for idx_name, idx_data in all_indices_data.items():
+            if len(idx_data) >= days:
+                sector_returns[idx_name] = (idx_data['Close'].iloc[-1] / idx_data['Close'].iloc[-days] - 1) * 100
+        
+        # Calculate benchmark return
+        benchmark_return = None
+        if nifty_data is not None and len(nifty_data) >= days:
+            benchmark_return = (nifty_data['Close'].iloc[-1] / nifty_data['Close'].iloc[-days] - 1) * 100
+        
+        # Calculate stock return
+        stock_return = None
+        if stock_data is not None and len(stock_data) >= days:
+            stock_return = (stock_data['Close'].iloc[-1] / stock_data['Close'].iloc[-days] - 1) * 100
+        
+        # Rank sectors by return
+        if sector_returns:
+            ranked_sectors = sorted(sector_returns.items(), key=lambda x: x[1], reverse=True)
+            sectors_ranked[timeframe_name] = ranked_sectors
+            
+            # Identify top and bottom sectors
+            timeframe_leaders[timeframe_name] = {
+                'top_sectors': [name for name, _ in ranked_sectors[:3]],
+                'bottom_sectors': [name for name, _ in ranked_sectors[-3:]],
+                'market_return': benchmark_return,
+                'stock_return': stock_return
+            }
+            
+            # Save performance
+            timeframe_performance[timeframe_name] = sector_returns
+    
+    # Identify dominant sectors (sectors in top 3 across multiple timeframes)
+    sector_count = {}
+    for timeframe, leaders in timeframe_leaders.items():
+        for sector_name in leaders['top_sectors']:
+            sector_count[sector_name] = sector_count.get(sector_name, 0) + 1
+    
+    dominant_sectors = [sector for sector, count in sector_count.items() 
+                       if count >= 2]  # Sectors that are top performers in at least 2 timeframes
+    
+    # Calculate sector rotation trends
+    rotation_trends = {}
+    for timeframe1, timeframe2 in [('1w', '1m'), ('1m', '3m'), ('3m', '6m')]:
+        if timeframe1 in timeframe_leaders and timeframe2 in timeframe_leaders:
+            # Check for changing leadership
+            top_recent = set(timeframe_leaders[timeframe1]['top_sectors'])
+            top_longer = set(timeframe_leaders[timeframe2]['top_sectors'])
+            
+            new_leaders = top_recent - top_longer
+            fading_leaders = top_longer - top_recent
+            
+            rotation_trends[f'{timeframe1}_vs_{timeframe2}'] = {
+                'new_leaders': list(new_leaders),
+                'fading_leaders': list(fading_leaders),
+                'rotation_strength': len(new_leaders) / 3 if new_leaders else 0
+            }
+    
+    # Calculate relative sector strength for the stock's sector
+    relative_sector_strength = {}
+    stock_sector = None
+    
+    for sector_name in all_indices_data.keys():
+        if sector.lower() in sector_name.lower():
+            stock_sector = sector_name
+            break
+    
+    if stock_sector and stock_sector in all_indices_data and nifty_data is not None:
+        sector_data = all_indices_data[stock_sector]
+        
+        for timeframe_name, days in timeframes.items():
+            if len(sector_data) >= days and len(nifty_data) >= days:
+                sector_return = (sector_data['Close'].iloc[-1] / sector_data['Close'].iloc[-days] - 1) * 100
+                benchmark_return = (nifty_data['Close'].iloc[-1] / nifty_data['Close'].iloc[-days] - 1) * 100
+                
+                relative_strength = sector_return - benchmark_return
+                relative_sector_strength[timeframe_name] = relative_strength
+    
+    # Construct the result dictionary
+    result = {
+        'dominant_sectors': dominant_sectors,
+        'timeframe_leaders': timeframe_leaders,
+        'relative_sector_strength': relative_sector_strength,
+        'rotation_trends': rotation_trends,
+        'stock_sector': stock_sector if stock_sector else sector,
+        'sector_rankings': {
+            timeframe: {
+                'ranks': [{'sector': s, 'return': r} for s, r in ranks[:5]]  # Top 5 only
+            } for timeframe, ranks in sectors_ranked.items()
+        }
+    }
+    
+    # Add sector breadth analysis
+    sector_breadth = {}
+    for timeframe_name, days in timeframes.items():
+        if timeframe_name in timeframe_performance:
+            # Calculate percentage of sectors outperforming benchmark
+            if benchmark_return is not None:
+                outperforming = sum(1 for ret in timeframe_performance[timeframe_name].values() 
+                                   if ret > benchmark_return)
+                sector_breadth[timeframe_name] = outperforming / len(timeframe_performance[timeframe_name])
+    
+    result['sector_breadth'] = sector_breadth
+    
+    return result

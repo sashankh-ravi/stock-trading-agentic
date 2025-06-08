@@ -86,35 +86,45 @@ def calculate_relative_strength_cumulative(
     float
         Cumulative relative strength score
     """
-    try:
-        # Handle None, empty Series, or Series with only NaN values
-        if (stock_data is None or market_data is None or
-            not isinstance(stock_data, pd.Series) or not isinstance(market_data, pd.Series) or
-            len(stock_data) == 0 or len(market_data) == 0 or
-            stock_data.isna().all() or market_data.isna().all()):
-            return 0.0
-        
-        # Ensure data is properly aligned
-        stock_aligned, market_aligned = standardize_periods(stock_data, market_data)
-        
-        # Check for minimum data requirement
-        if len(stock_aligned) < min_periods:
-            return 0.0
-        
-        # Check for flat market (to avoid division by zero)
-        if market_aligned.std() == 0 or stock_aligned.std() == 0:
-            return 0.0
-        
-        # Calculate relative performance
-        relative_perf = (stock_aligned.iloc[-1] / stock_aligned.iloc[0]) / (market_aligned.iloc[-1] / market_aligned.iloc[0]) - 1
-        
-        # Scale and bound the result
-        rs = float(relative_perf * 100)
-        return max(min(rs, 10.0), -10.0)  # Bound between -10 and 10
-        
-    except Exception as e:
-        logger.error(f"Error in calculate_relative_strength_cumulative: {str(e)}")
+    # Handle None, empty Series, or Series with only NaN values
+    if (stock_data is None or market_data is None or
+        not isinstance(stock_data, pd.Series) or not isinstance(market_data, pd.Series) or
+        len(stock_data) == 0 or len(market_data) == 0 or
+        stock_data.isna().all() or market_data.isna().all()):
+        logger.warning("Invalid input data for RS calculation")
         return 0.0
+    
+    # Ensure data is properly aligned
+    stock_aligned, market_aligned = standardize_periods(stock_data, market_data)
+    
+    # Check for minimum data requirement
+    if len(stock_aligned) < min_periods:
+        logger.warning(f"Insufficient data points: {len(stock_aligned)} < {min_periods}")
+        return 0.0
+    
+    # Check for flat market (to avoid division by zero)
+    if market_aligned.std() == 0 or stock_aligned.std() == 0:
+        logger.warning("Zero standard deviation detected in data")
+        return 0.0
+    
+    # Calculate normalized stock and market performance
+    stock_perf = stock_aligned.iloc[-1] / stock_aligned.iloc[0]
+    market_perf = market_aligned.iloc[-1] / market_aligned.iloc[0]
+    
+    logger.info(f"Stock performance: {stock_perf:.4f}")
+    logger.info(f"Market performance: {market_perf:.4f}")
+    
+    # Calculate relative performance
+    relative_perf = (stock_perf / market_perf) - 1
+    
+    logger.info(f"Raw relative performance: {relative_perf:.4f}")
+    
+    # Scale and bound the result
+    rs = float(relative_perf * 100)
+    bounded_rs = max(min(rs, 10.0), -10.0)  # Bound between -10 and 10
+    
+    logger.info(f"Final RS value: {bounded_rs:.4f}")
+    return bounded_rs
 
 def calculate_relative_strength_rolling(
     stock_data: pd.Series,
@@ -138,35 +148,36 @@ def calculate_relative_strength_rolling(
     pd.Series
         Series of rolling relative strength values
     """
-    try:
-        # Handle edge cases
-        if (stock_data is None or market_data is None or
-            not isinstance(stock_data, pd.Series) or not isinstance(market_data, pd.Series) or
-            len(stock_data) == 0 or len(market_data) == 0 or
-            stock_data.isna().all() or market_data.isna().all()):
-            return pd.Series([0.0])
-        
-        # Ensure data is properly aligned
-        stock_aligned, market_aligned = standardize_periods(stock_data, market_data)
-        
-        # Calculate returns
-        stock_returns = stock_aligned.pct_change()
-        market_returns = market_aligned.pct_change()
-        
-        # Calculate rolling means with minimum periods
-        min_periods = max(2, window // 2)  # Ensure at least 2 periods for mean calculation
-        stock_mean = stock_returns.rolling(window=window, min_periods=min_periods).mean()
-        market_mean = market_returns.rolling(window=window, min_periods=min_periods).mean()
-        
-        # Calculate relative strength
-        rs = (stock_mean - market_mean) * 100
-        
-        # Bound the values
-        return rs.clip(-10, 10)  # Bound between -10 and 10
-        
-    except Exception as e:
-        logger.error(f"Error in calculate_relative_strength_rolling: {str(e)}")
+    # Handle edge cases
+    if (stock_data is None or market_data is None or
+        not isinstance(stock_data, pd.Series) or not isinstance(market_data, pd.Series) or
+        len(stock_data) == 0 or len(market_data) == 0 or
+        stock_data.isna().all() or market_data.isna().all()):
         return pd.Series([0.0])
+    
+    # Ensure data is properly aligned
+    stock_aligned, market_aligned = standardize_periods(stock_data, market_data)
+    
+    if len(stock_aligned) < window:
+        logger.warning(f"Insufficient data points for rolling calculation: {len(stock_aligned)} < {window}")
+        return pd.Series([0.0])
+    
+    # Calculate returns
+    stock_returns = stock_aligned.pct_change()
+    market_returns = market_aligned.pct_change()
+    
+    # Calculate rolling performance ratio
+    rolling_stock = (1 + stock_returns).rolling(window=window).apply(lambda x: x.prod())
+    rolling_market = (1 + market_returns).rolling(window=window).apply(lambda x: x.prod())
+    
+    # Calculate relative strength
+    rs = (rolling_stock / rolling_market - 1) * 100
+    
+    # Bound the values
+    rs = rs.clip(-10, 10)  # Bound between -10 and 10
+    
+    logger.info(f"Rolling RS range: {rs.min():.4f} to {rs.max():.4f}")
+    return rs
 
 def calculate_relative_strength_metrics(
     stock_data: pd.Series,
@@ -192,8 +203,11 @@ def calculate_relative_strength_metrics(
     """
     if window_sizes is None:
         window_sizes = {
-            'roll': 63,  # ~3 months
-            'mom': 252   # ~1 year
+            'roll': 63,     # ~3 months
+            'mom': 252,     # ~1 year
+            'short': 21,    # ~1 month
+            'medium': 126,  # ~6 months
+            'long': 252     # ~1 year
         }
     
     # Input validation with early return for edge cases
@@ -215,26 +229,62 @@ def calculate_relative_strength_metrics(
     
     # Calculate metrics for each market index
     for market_name, market_series in market_data_dict.items():
-        try:
-            # Standardize periods for calculations
-            stock_aligned, market_aligned = standardize_periods(stock_data, market_series)
-            
-            # Calculate cumulative RS
-            cum_rs = calculate_relative_strength_cumulative(stock_aligned, market_aligned)
-            result[f'RS_CUM_{market_name}'] = float(cum_rs)
-            
-            # Calculate rolling RS
-            roll_rs = calculate_relative_strength_rolling(stock_aligned, market_aligned, window=window_sizes['roll'])
-            result[f'RS_ROLL_{market_name}'] = float(roll_rs.iloc[-1])
-            
-            # Calculate momentum RS
-            mom_rs = calculate_relative_strength_rolling(stock_aligned, market_aligned, window=window_sizes['mom'])
-            result[f'RS_MOM_{market_name}'] = float(mom_rs.iloc[-1])
-            
-        except Exception as e:
-            logger.error(f"Error calculating RS metrics for {market_name}: {str(e)}")
-            result[f'RS_CUM_{market_name}'] = 0.0
-            result[f'RS_ROLL_{market_name}'] = 0.0
-            result[f'RS_MOM_{market_name}'] = 0.0
+        # Standardize periods for calculations
+        stock_aligned, market_aligned = standardize_periods(stock_data, market_series)
+        
+        # Calculate returns
+        stock_returns = stock_aligned.pct_change()
+        market_returns = market_aligned.pct_change()
+        
+        # 1. Basic RS Metrics
+        # Cumulative RS
+        cum_rs = calculate_relative_strength_cumulative(stock_aligned, market_aligned)
+        result[f'RS_CUM_{market_name}'] = float(cum_rs)
+        
+        # Rolling RS
+        roll_rs = calculate_relative_strength_rolling(stock_aligned, market_aligned, window=window_sizes['roll'])
+        result[f'RS_ROLL_{market_name}'] = float(roll_rs.iloc[-1])
+        
+        # Momentum RS
+        mom_rs = calculate_relative_strength_rolling(stock_aligned, market_aligned, window=window_sizes['mom'])
+        result[f'RS_MOM_{market_name}'] = float(mom_rs.iloc[-1])
+        
+        # 2. Enhanced RS Metrics
+        # Multiple timeframe RS
+        for period, window in [('SHORT', 'short'), ('MEDIUM', 'medium'), ('LONG', 'long')]:
+            rs = calculate_relative_strength_rolling(stock_aligned, market_aligned, window=window_sizes[window])
+            result[f'RS_{period}_{market_name}'] = float(rs.iloc[-1])
+        
+        # 3. RS Trend Analysis
+        # Calculate RS slope (trend direction and strength)
+        rs_line = (stock_aligned / stock_aligned.iloc[0]) / (market_aligned / market_aligned.iloc[0])
+        rs_slope = np.polyfit(np.arange(len(rs_line[-20:])), rs_line[-20:], 1)[0]
+        result[f'RS_TREND_{market_name}'] = float(rs_slope)
+        
+        # 4. RS Volatility
+        # Calculate how stable the RS relationship is
+        rs_std = roll_rs.std()
+        result[f'RS_VOLATILITY_{market_name}'] = float(rs_std)
+        
+        # 5. RS Mean Reversion
+        # How far current RS is from its moving average
+        rs_ma = roll_rs.rolling(window=20).mean()
+        if not rs_ma.empty:
+            rs_deviation = (roll_rs.iloc[-1] - rs_ma.iloc[-1]) / rs_ma.iloc[-1]
+            result[f'RS_DEVIATION_{market_name}'] = float(rs_deviation)
+        
+        # 6. RS Momentum Factors
+        # Rate of change in RS
+        rs_roc = roll_rs.pct_change(periods=5)  # 5-day rate of change
+        result[f'RS_ROC_{market_name}'] = float(rs_roc.iloc[-1])
+        
+        # RS Acceleration
+        rs_roc_change = rs_roc.diff()
+        result[f'RS_ACCELERATION_{market_name}'] = float(rs_roc_change.iloc[-1])
+        
+        # 7. RS Regime Detection
+        # Determine if RS is in strong/weak regime
+        rs_percentile = pd.Series(roll_rs).rank(pct=True).iloc[-1]
+        result[f'RS_REGIME_{market_name}'] = float(rs_percentile)
     
     return result

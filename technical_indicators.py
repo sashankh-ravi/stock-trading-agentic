@@ -17,25 +17,208 @@ Categories:
 import numpy as np
 import pandas as pd
 import talib
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 from dataclasses import dataclass
 import logging
 from scipy import stats
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import itertools
-from relative_strength import calculate_relative_strength_metrics
 
 logger = logging.getLogger(__name__)
+
+# Function to add technical indicators to dataframe - can be used in batch processing
+def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add standard technical indicators to a dataframe of stock data
+    
+    Args:
+        df: DataFrame with OHLCV data
+        
+    Returns:
+        DataFrame with added technical indicators
+    """
+    # Make a copy to avoid modifying the original
+    result = df.copy()
+    
+    # Process each symbol separately
+    symbols = result['symbol'].unique() if 'symbol' in result.columns else [None]
+    
+    for symbol in symbols:
+        # Filter data for this symbol
+        if symbol:
+            symbol_data = result[result['symbol'] == symbol].copy()
+        else:
+            symbol_data = result.copy()
+        
+        # Skip if not enough data
+        if len(symbol_data) < 30:
+            logger.warning(f"Not enough data for {symbol} to calculate indicators")
+            continue
+            
+        # Trend indicators
+        symbol_data['SMA_20'] = talib.SMA(symbol_data['Close'], timeperiod=20)
+        symbol_data['SMA_50'] = talib.SMA(symbol_data['Close'], timeperiod=50)
+        symbol_data['SMA_200'] = talib.SMA(symbol_data['Close'], timeperiod=200)
+        symbol_data['EMA_20'] = talib.EMA(symbol_data['Close'], timeperiod=20)
+        symbol_data['EMA_50'] = talib.EMA(symbol_data['Close'], timeperiod=50)
+        
+        # Momentum indicators
+        symbol_data['RSI'] = talib.RSI(symbol_data['Close'], timeperiod=14)
+        symbol_data['MACD'], symbol_data['MACD_Signal'], symbol_data['MACD_Hist'] = talib.MACD(
+            symbol_data['Close'], fastperiod=12, slowperiod=26, signalperiod=9
+        )
+        symbol_data['ROC'] = talib.ROC(symbol_data['Close'], timeperiod=10)  # Rate of Change
+        symbol_data['CCI'] = talib.CCI(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)  # Commodity Channel Index
+        
+        # Volatility indicators
+        symbol_data['ATR'] = talib.ATR(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
+        symbol_data['Bollinger_Upper'], symbol_data['Bollinger_Middle'], symbol_data['Bollinger_Lower'] = talib.BBANDS(
+            symbol_data['Close'], timeperiod=20, nbdevup=2, nbdevdn=2, matype=0
+        )
+        symbol_data['Bollinger_Width'] = (symbol_data['Bollinger_Upper'] - symbol_data['Bollinger_Lower']) / symbol_data['Bollinger_Middle']
+        
+        # Volume indicators
+        if 'Volume' in symbol_data.columns:
+            symbol_data['OBV'] = talib.OBV(symbol_data['Close'], symbol_data['Volume'])
+            symbol_data['Money_Flow_Index'] = talib.MFI(
+                symbol_data['High'], symbol_data['Low'], 
+                symbol_data['Close'], symbol_data['Volume'], timeperiod=14
+            )
+            # Volume relative to moving average (volume spike detection)
+            symbol_data['Volume_SMA_20'] = talib.SMA(symbol_data['Volume'], timeperiod=20)
+            symbol_data['Volume_Ratio_20'] = symbol_data['Volume'] / symbol_data['Volume_SMA_20']
+            # Daily trading value (price * volume)
+            symbol_data['Trading_Value'] = symbol_data['Close'] * symbol_data['Volume']
+            
+        # Trend strength and direction indicators
+        symbol_data['ADX'] = talib.ADX(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
+        symbol_data['Plus_DI'] = talib.PLUS_DI(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
+        symbol_data['Minus_DI'] = talib.MINUS_DI(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
+        
+        # Candlestick patterns
+        symbol_data['Doji'] = talib.CDLDOJI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Engulfing'] = talib.CDLENGULFING(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Hammer'] = talib.CDLHAMMER(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Morning_Star'] = talib.CDLMORNINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Evening_Star'] = talib.CDLEVENINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Shooting_Star'] = talib.CDLSHOOTINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Harami'] = talib.CDLHARAMI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Piercing'] = talib.CDLPIERCING(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Dark_Cloud'] = talib.CDLDARKCLOUDCOVER(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Gap analysis
+        symbol_data['Gap_Up'] = symbol_data['Open'] > symbol_data['High'].shift(1)
+        symbol_data['Gap_Down'] = symbol_data['Open'] < symbol_data['Low'].shift(1)
+        symbol_data['Gap_Size'] = (symbol_data['Open'] - symbol_data['Close'].shift(1)) / symbol_data['Close'].shift(1) * 100
+        
+        # Add daily returns
+        symbol_data['Daily_Return'] = symbol_data['Close'].pct_change() * 100
+        
+        # Calculate volatility metrics
+        symbol_data['Volatility_20'] = symbol_data['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
+        symbol_data['Volatility_10'] = symbol_data['Daily_Return'].rolling(window=10).std() * np.sqrt(252)
+        symbol_data['Volatility_60'] = symbol_data['Daily_Return'].rolling(window=60).std() * np.sqrt(252)
+        symbol_data['Volatility_Ratio'] = symbol_data['Volatility_10'] / symbol_data['Volatility_60']
+        
+        # Range expansion/contraction
+        symbol_data['Daily_Range'] = (symbol_data['High'] - symbol_data['Low']) / symbol_data['Low'] * 100
+        symbol_data['Range_SMA_20'] = talib.SMA(symbol_data['Daily_Range'], timeperiod=20)
+        symbol_data['Range_Expansion'] = symbol_data['Daily_Range'] / symbol_data['Range_SMA_20']
+        
+        # Advanced momentum indicators
+        symbol_data['Momentum'] = symbol_data['Close'] / symbol_data['Close'].shift(10) - 1
+        symbol_data['ROC_5'] = talib.ROC(symbol_data['Close'], timeperiod=5)
+        symbol_data['ROC_10'] = talib.ROC(symbol_data['Close'], timeperiod=10)
+        symbol_data['ROC_21'] = talib.ROC(symbol_data['Close'], timeperiod=21)
+        symbol_data['ROC_63'] = talib.ROC(symbol_data['Close'], timeperiod=63)
+        
+        # Add Stochastic indicators
+        symbol_data['Stoch_K'], symbol_data['Stoch_D'] = talib.STOCH(symbol_data['High'], 
+                                                                   symbol_data['Low'], 
+                                                                   symbol_data['Close'],
+                                                                   fastk_period=14, 
+                                                                   slowk_period=3, 
+                                                                   slowd_period=3)
+        
+        symbol_data['StochRSI'] = talib.STOCHRSI(symbol_data['Close'], 
+                                               timeperiod=14, 
+                                               fastk_period=5, 
+                                               fastd_period=3)[0]
+        
+        # Add Ichimoku Cloud indicators
+        high_9 = symbol_data['High'].rolling(window=9).max()
+        low_9 = symbol_data['Low'].rolling(window=9).min()
+        symbol_data['Tenkan_Sen'] = (high_9 + low_9) / 2
+        
+        high_26 = symbol_data['High'].rolling(window=26).max()
+        low_26 = symbol_data['Low'].rolling(window=26).min()
+        symbol_data['Kijun_Sen'] = (high_26 + low_26) / 2
+        
+        symbol_data['Senkou_Span_A'] = ((symbol_data['Tenkan_Sen'] + symbol_data['Kijun_Sen']) / 2).shift(26)
+        
+        high_52 = symbol_data['High'].rolling(window=52).max()
+        low_52 = symbol_data['Low'].rolling(window=52).min()
+        symbol_data['Senkou_Span_B'] = ((high_52 + low_52) / 2).shift(26)
+        
+        symbol_data['Chikou_Span'] = symbol_data['Close'].shift(-26)
+        
+        # Add liquidity metrics
+        if 'Volume' in symbol_data.columns:
+            # Relative volume compared to 20-day average
+            symbol_data['Relative_Volume'] = symbol_data['Volume'] / symbol_data['Volume'].rolling(window=20).mean()
+            
+            # Money flow metrics
+            typical_price = (symbol_data['High'] + symbol_data['Low'] + symbol_data['Close']) / 3
+            money_flow = typical_price * symbol_data['Volume']
+            
+            # Positive and negative money flow
+            pos_flow = money_flow.where(typical_price > typical_price.shift(1), 0)
+            neg_flow = money_flow.where(typical_price < typical_price.shift(1), 0)
+            
+            # Money flow ratio and index (14-period)
+            pos_flow_sum = pos_flow.rolling(window=14).sum()
+            neg_flow_sum = neg_flow.rolling(window=14).sum()
+            symbol_data['Money_Flow_Ratio'] = pos_flow_sum / neg_flow_sum
+            symbol_data['Money_Flow_Index_14'] = 100 - (100 / (1 + symbol_data['Money_Flow_Ratio']))
+            
+            # Chaikin Money Flow (20-period)
+            money_flow_multiplier = ((symbol_data['Close'] - symbol_data['Low']) - (symbol_data['High'] - symbol_data['Close'])) / (symbol_data['High'] - symbol_data['Low'])
+            money_flow_volume = money_flow_multiplier * symbol_data['Volume']
+            symbol_data['Chaikin_Money_Flow_20'] = money_flow_volume.rolling(window=20).sum() / symbol_data['Volume'].rolling(window=20).sum()
+        
+        # Update the main dataframe
+        if symbol:
+            # Update the specific rows for this symbol with the new columns
+            mask = result['symbol'] == symbol
+            for col in symbol_data.columns:
+                if col not in result.columns:
+                    result[col] = np.nan
+                result.loc[mask, col] = symbol_data[col].values
+        else:
+            result = symbol_data
+            
+    return result
 
 @dataclass
 class IndicatorSignal:
     """Represents a signal from a technical indicator"""
-    name: str
-    value: float
-    signal: str  # 'buy', 'sell', 'hold'
+    indicator: str
+    signal_type: str  # 'buy', 'sell', 'neutral'
     strength: float  # 0 to 1
-    timeframe: str  # 'short', 'medium', 'long'
+    timeframe: str  # '5m', '15m', '1h', '1d', etc.
+    price_level: float
+    description: str
+    confidence: float  # 0 to 1
+
+@dataclass
+class MarketRegime:
+    """Represents the current market regime"""
+    trend: str  # 'uptrend', 'downtrend', 'sideways'
+    volatility: str  # 'low', 'normal', 'high'
+    volume: str  # 'low', 'normal', 'high'
+    momentum: str  # 'strong', 'weak', 'neutral'
+    confidence: float  # 0 to 1
 
 class TechnicalIndicators:
     """
@@ -49,789 +232,426 @@ class TechnicalIndicators:
                 'sma': ['SMA20', 'SMA50', 'SMA200'],
                 'ema': ['EMA20', 'EMA50', 'EMA200'],
                 'macd': ['MACD', 'MACD_Signal', 'MACD_Hist'],
-                'adx': ['ADX'],
-                'parabolic_sar': ['SAR'],
-                'ichimoku': ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B', 'Chikou']
+                'adx': ['ADX', 'DI_PLUS', 'DI_MINUS'],
+                'ichimoku': ['TENKAN', 'KIJUN', 'SENKOU_A', 'SENKOU_B', 'CHIKOU'],
+                'supertrend': ['SUPERTREND', 'SUPERTREND_DIRECTION']
             },
             'momentum': {
                 'rsi': ['RSI'],
-                'stochastic': ['STOCH_K', 'STOCH_D'],
-                'williams_r': ['WILLR'],
+                'stoch': ['STOCH_K', 'STOCH_D'],
                 'cci': ['CCI'],
-                'mfi': ['MFI'],
-                'dmi': ['DI_PLUS', 'DI_MINUS']
-            },
-            'volatility': {
-                'bollinger': ['BB_Upper', 'BB_Middle', 'BB_Lower'],
-                'atr': ['ATR'],
-                'standard_dev': ['STD20'],
-                'keltner': ['KC_Upper', 'KC_Middle', 'KC_Lower']
+                'williams_r': ['WILLR'],
+                'roc': ['ROC'],
+                'mfi': ['MFI']
             },
             'volume': {
-                'obv': ['OBV'],
-                'vwap': ['VWAP'],
-                'ad': ['AD'],
-                'cmf': ['CMF'],
-                'volume_profile': ['VOL_POC', 'VOL_VAH', 'VOL_VAL']
+                'standard': ['OBV', 'AD'],
+                'advanced': ['CMF', 'VWAP', 'EMV', 'VQI'],
+                'price_volume': ['PVT', 'NVI', 'PVI']
             },
-            'cycle': {
-                'hurst': ['HURST'],
-                'hilbert': ['HT_TRENDLINE', 'HT_SINE'],
-                'mesa': ['MESA_SINE', 'MESA_LEADSIN']
+            'volatility': {
+                'bands': ['BBANDS_UPPER', 'BBANDS_MIDDLE', 'BBANDS_LOWER'],
+                'atr': ['ATR', 'ATR_PERCENT'],
+                'standard_dev': ['STD20'],
+                'keltner': ['KC_UPPER', 'KC_MIDDLE', 'KC_LOWER']
+            },
+            'custom': {
+                'regime': ['TREND_STRENGTH', 'VOL_REGIME', 'MOMENTUM_QUALITY'],
+                'composite': ['VAM', 'VQI', 'TSI']
             }
         }
         
-        # Initialize correlation matrix
-        self.correlation_matrix = None
-        
-    def calculate_all(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate all technical indicators
-        
-        Parameters:
-        -----------
-        data : pd.DataFrame
-            OHLCV data with columns ['Open', 'High', 'Low', 'Close', 'Volume']
-            
-        Returns:
-        --------
-        pd.DataFrame
-            DataFrame with all technical indicators
-        """
-        df = data.copy()
-        
-        # Trend Indicators
-        self._add_moving_averages(df)
-        self._add_macd(df)
-        self._add_adx(df)
-        self._add_parabolic_sar(df)
-        self._add_ichimoku(df)
-        
-        # Momentum Indicators
-        self._add_rsi(df)
-        self._add_stochastic(df)
-        self._add_williams_r(df)
-        self._add_cci(df)
-        self._add_mfi(df)
-        self._add_dmi(df)
-        
-        # Volatility Indicators
-        self._add_bollinger_bands(df)
-        self._add_atr(df)
-        self._add_keltner_channels(df)
-        
-        # Volume Indicators
-        self._add_volume_indicators(df)
-        self._add_volume_profile(df)
-        
-        # Cycle Indicators
-        self._add_cycle_indicators(df)
-        
-        # Calculate correlations
-        self._update_correlation_matrix(df)
-        
-        return df
-        
-    def _add_moving_averages(self, df: pd.DataFrame):
-        """Add various moving averages"""
-        periods = [20, 50, 200]
-        for period in periods:
-            df[f'SMA{period}'] = talib.SMA(df['Close'], timeperiod=period)
-            df[f'EMA{period}'] = talib.EMA(df['Close'], timeperiod=period)
-            
-    def _add_macd(self, df: pd.DataFrame):
-        """
-        Add MACD indicator
-        MACD = 12-period EMA - 26-period EMA
-        Signal = 9-period EMA of MACD
-        """
-        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = talib.MACD(
-            df['Close'], fastperiod=12, slowperiod=26, signalperiod=9
-        )
-        
-    def _add_adx(self, df: pd.DataFrame):
-        """
-        Add Average Directional Index (ADX)
-        Measures trend strength regardless of direction
-        """
-        df['ADX'] = talib.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
-        
-    def _add_parabolic_sar(self, df: pd.DataFrame):
-        """
-        Add Parabolic SAR
-        Indicates potential reversals in price movement
-        """
-        df['SAR'] = talib.SAR(df['High'], df['Low'])
-        
-    def _add_ichimoku(self, df: pd.DataFrame):
-        """
-        Add Ichimoku Cloud indicators
-        A comprehensive trend trading system
-        """
-        # Conversion Line (Tenkan-sen)
-        high_9 = df['High'].rolling(window=9).max()
-        low_9 = df['Low'].rolling(window=9).min()
-        df['Tenkan'] = (high_9 + low_9) / 2
-        
-        # Base Line (Kijun-sen)
-        high_26 = df['High'].rolling(window=26).max()
-        low_26 = df['Low'].rolling(window=26).min()
-        df['Kijun'] = (high_26 + low_26) / 2
-        
-        # Leading Span A (Senkou Span A)
-        df['Senkou_A'] = ((df['Tenkan'] + df['Kijun']) / 2).shift(26)
-        
-        # Leading Span B (Senkou Span B)
-        high_52 = df['High'].rolling(window=52).max()
-        low_52 = df['Low'].rolling(window=52).min()
-        df['Senkou_B'] = ((high_52 + low_52) / 2).shift(26)
-        
-        # Lagging Span (Chikou)
-        df['Chikou'] = df['Close'].shift(-26)
-        
-    def _add_rsi(self, df: pd.DataFrame):
-        """
-        Add Relative Strength Index (RSI)
-        Measures momentum by comparing recent gains to recent losses
-        """
-        df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
-        
-    def _add_stochastic(self, df: pd.DataFrame):
-        """
-        Add Stochastic Oscillator
-        Compares closing price to price range over time
-        """
-        df['STOCH_K'], df['STOCH_D'] = talib.STOCH(
-            df['High'], df['Low'], df['Close']
-        )
-        
-    def _add_williams_r(self, df: pd.DataFrame):
-        """
-        Add Williams %R
-        Momentum indicator measuring overbought/oversold levels
-        """
-        df['WILLR'] = talib.WILLR(
-            df['High'], df['Low'], df['Close'], timeperiod=14
-        )
-        
-    def _add_cci(self, df: pd.DataFrame):
-        """
-        Add Commodity Channel Index (CCI)
-        Measures deviation from statistical mean
-        """
-        df['CCI'] = talib.CCI(
-            df['High'], df['Low'], df['Close'], timeperiod=20
-        )
-        
-    def _add_mfi(self, df: pd.DataFrame):
-        """
-        Add Money Flow Index (MFI)
-        Volume-weighted RSI
-        """
-        df['MFI'] = talib.MFI(
-            df['High'], df['Low'], df['Close'], df['Volume'], timeperiod=14
-        )
-        
-    def _add_dmi(self, df: pd.DataFrame):
-        """
-        Add Directional Movement Index (DMI)
-        Measures trend direction and strength
-        """
-        df['DI_PLUS'] = talib.PLUS_DI(
-            df['High'], df['Low'], df['Close'], timeperiod=14
-        )
-        df['DI_MINUS'] = talib.MINUS_DI(
-            df['High'], df['Low'], df['Close'], timeperiod=14
-        )
-        
-    def _add_bollinger_bands(self, df: pd.DataFrame):
-        """
-        Add Bollinger Bands
-        Volatility bands based on standard deviation
-        """
-        df['BB_Upper'], df['BB_Middle'], df['BB_Lower'] = talib.BBANDS(
-            df['Close'], timeperiod=20
-        )
-        
-    def _add_atr(self, df: pd.DataFrame):
-        """
-        Add Average True Range (ATR)
-        Measures volatility
-        """
-        df['ATR'] = talib.ATR(
-            df['High'], df['Low'], df['Close'], timeperiod=14
-        )
-        
-    def _add_keltner_channels(self, df: pd.DataFrame):
-        """
-        Add Keltner Channels
-        Volatility-based bands using ATR
-        """
-        typical_price = (df['High'] + df['Low'] + df['Close']) / 3
-        df['KC_Middle'] = talib.SMA(typical_price, timeperiod=20)
-        atr = df['ATR']
-        df['KC_Upper'] = df['KC_Middle'] + (2 * atr)
-        df['KC_Lower'] = df['KC_Middle'] - (2 * atr)
-        
-    def _add_volume_indicators(self, df: pd.DataFrame):
-        """Add volume-based indicators"""
-        # On-Balance Volume (OBV)
-        df['OBV'] = talib.OBV(df['Close'], df['Volume'])
-        
-        # Volume Weighted Average Price (VWAP)
-        df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
-        
-        # Accumulation/Distribution Line
-        df['AD'] = talib.AD(df['High'], df['Low'], df['Close'], df['Volume'])
-        
-        # Chaikin Money Flow
-        df['CMF'] = talib.ADOSC(
-            df['High'], df['Low'], df['Close'], df['Volume']
-        )
-        
-    def _add_volume_profile(self, df: pd.DataFrame):
-        """
-        Add Volume Profile indicators
-        Analyzes price levels with highest trading activity
-        """
-        def calculate_poc(prices, volumes):
-            # Point of Control - price level with highest volume
-            unique_prices = np.unique(prices)
-            volume_per_price = {p: sum(volumes[prices == p]) for p in unique_prices}
-            poc = max(volume_per_price.items(), key=lambda x: x[1])[0]
-            return poc
-        
-        window = 20
-        df['VOL_POC'] = df.rolling(window=window).apply(
-            lambda x: calculate_poc(x['Close'], x['Volume'])
-        )
-        
-        # Value Area High and Low (70% of volume)
-        def calculate_va(prices, volumes):
-            sorted_idx = np.argsort(prices)
-            cum_vol = np.cumsum(volumes[sorted_idx])
-            total_vol = cum_vol[-1]
-            
-            # Find price levels containing 70% of volume
-            vol_threshold = total_vol * 0.7
-            idx = np.searchsorted(cum_vol, vol_threshold)
-            
-            if idx >= len(prices):
-                return prices.max(), prices.min()
-                
-            return prices[sorted_idx[idx]], prices[sorted_idx[0]]
-        
-        df[['VOL_VAH', 'VOL_VAL']] = df.rolling(window=window).apply(
-            lambda x: pd.Series(calculate_va(x['Close'].values, x['Volume'].values))
-        )
-        
-    def _add_cycle_indicators(self, df: pd.DataFrame):
-        """Add cycle-based indicators"""
-        # Hurst Exponent (trend strength)
-        def hurst(prices):
-            lags = range(2, 20)
-            tau = [np.sqrt(np.std(np.subtract(prices[lag:], prices[:-lag])))
-                   for lag in lags]
-            reg = np.polyfit(np.log(lags), np.log(tau), 1)
-            return reg[0]  # Hurst exponent is the slope
-            
-        df['HURST'] = df['Close'].rolling(window=100).apply(
-            lambda x: hurst(x.values)
-        )
-        
-        # Hilbert Transform
-        df['HT_TRENDLINE'] = talib.HT_TRENDLINE(df['Close'])
-        df['HT_SINE'], _ = talib.HT_SINE(df['Close'])
-        
-        # MESA Sine Wave
-        df['MESA_SINE'], df['MESA_LEADSIN'] = talib.HT_SINE(df['Close'])
-        
-    def _align_data_periods(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Align data periods to ensure consistent time windows across all indicators
-        
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame containing all indicators and market data
-            
-        Returns:
-        --------
-        pd.DataFrame
-            DataFrame with aligned periods for all indicators
-        """
-        # Get common date range
-        all_dates = set.intersection(*[set(df[col].dropna().index) for col in df.columns])
-        if not all_dates:
-            logger.warning("No common dates found across indicators")
-            return pd.DataFrame()
-            
-        # Align to common dates
-        common_df = df.loc[sorted(all_dates)]
-        return common_df
-
-    def _standardize_periods(self, series1: pd.Series, series2: pd.Series) -> Tuple[pd.Series, pd.Series]:
-        """
-        Standardize two time series to match periods
-        
-        Parameters:
-        -----------
-        series1, series2 : pd.Series
-            Time series data to align
-            
-        Returns:
-        --------
-        Tuple[pd.Series, pd.Series]
-            Aligned time series with matching periods
-        """
-        from data_alignment import align_series
-        return align_series(series1, series2)
-
-    def _compute_correlation(self, series1: pd.Series, series2: pd.Series) -> float:
-        """
-        Compute correlation between two series with proper handling of dimensions
-        
-        Parameters:
-        -----------
-        series1, series2 : pd.Series
-            Time series data to correlate
-            
-        Returns:
-        --------
-        float
-            Correlation coefficient or NaN if correlation cannot be computed
-        """
-        try:
-            if len(series1) != len(series2):
-                series1, series2 = self._standardize_periods(series1, series2)
-                
-            if len(series1) < 2 or len(series2) < 2:
-                return np.nan
-                
-            return series1.corr(series2)
-        except Exception as e:
-            logger.error(f"Error computing correlation: {e}")
-            return np.nan
-
-    def _update_correlation_matrix(self, df: pd.DataFrame):
-        """
-        Update correlation matrix between indicators with proper dimension handling
-        Helps identify redundant indicators
-        
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame with all indicators and market data
-        """
-        try:
-            # Select only numeric columns
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            
-            # Align periods first
-            aligned_df = self._align_data_periods(df[numeric_cols])
-            if aligned_df.empty:
-                logger.error("Could not align data periods for correlation calculation")
-                self.correlation_matrix = pd.DataFrame()
-                return
-                
-            # Initialize correlation matrix
-            n_cols = len(numeric_cols)
-            corr_matrix = pd.DataFrame(np.zeros((n_cols, n_cols)), 
-                                     index=numeric_cols, 
-                                     columns=numeric_cols)
-                                     
-            # Compute correlations pairwise with proper dimension handling
-            for i, col1 in enumerate(numeric_cols):
-                for j, col2 in enumerate(numeric_cols):
-                    if i > j:  # Only compute lower triangle
-                        continue
-                    elif i == j:
-                        corr_matrix.loc[col1, col2] = 1.0
-                    else:
-                        corr = self._compute_correlation(aligned_df[col1], aligned_df[col2])
-                        corr_matrix.loc[col1, col2] = corr
-                        corr_matrix.loc[col2, col1] = corr  # Matrix is symmetric
-                        
-            self.correlation_matrix = corr_matrix
-            
-        except Exception as e:
-            logger.error(f"Error updating correlation matrix: {e}")
-            self.correlation_matrix = pd.DataFrame()
-        
-    def get_uncorrelated_indicators(self, threshold: float = 0.7) -> Dict[str, List[str]]:
-        """
-        Identifies relatively independent indicators to avoid redundant signals
-        
-        Parameters:
-        -----------
-        threshold : float, default=0.7
-            Correlation threshold above which indicators are considered redundant
-            
-        Returns:
-        --------
-        Dict[str, List[str]]
-            Dictionary of indicator groups, where each group contains uncorrelated indicators
-            within that category (trend, momentum, volatility, etc.)
-        """
-        if self.correlation_matrix is None:
-            return {}
-            
-        uncorrelated_groups = {}
-        
-        # Process each indicator category separately
-        for category, indicators in self.indicator_groups.items():
-            # Flatten the indicators in this category
-            category_indicators = [ind for group in indicators.values() for ind in group]
-            
-            # Filter indicators that exist in the correlation matrix
-            available_indicators = [ind for ind in category_indicators 
-                                 if ind in self.correlation_matrix.columns]
-            
-            if not available_indicators:
-                continue
-                
-            # Find uncorrelated indicators within this category
-            selected = []
-            remaining = available_indicators.copy()
-            
-            while remaining:
-                current = remaining.pop(0)
-                selected.append(current)
-                
-                # Remove highly correlated indicators
-                remaining = [
-                    ind for ind in remaining
-                    if abs(self.correlation_matrix.loc[current, ind]) < threshold
-                ]
-            
-            uncorrelated_groups[category] = selected
-        
-        return uncorrelated_groups
-        
-    def get_optimal_indicator_set(self, df: pd.DataFrame) -> List[str]:
-        """
-        Get optimal set of indicators using PCA
-        
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame with all indicators
-            
-        Returns:
-        --------
-        List[str]
-            List of most important indicators
-        """
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
-        # Standardize the data
-        scaler = StandardScaler()
-        scaled_data = scaler.fit_transform(df[numeric_cols].fillna(0))
-        
-        # Apply PCA
-        pca = PCA(n_components=0.95)  # Explain 95% of variance
-        pca.fit(scaled_data)
-        
-        # Get feature importance
-        importance = np.abs(pca.components_).sum(axis=0)
-        importance = importance / importance.sum()
-        
-        # Select top indicators
-        important_idx = importance.argsort()[-10:][::-1]  # Top 10 indicators
-        return numeric_cols[important_idx].tolist()
-        
-    def get_indicator_signals(self, df: pd.DataFrame) -> List[IndicatorSignal]:
-        """
-        Get trading signals from all indicators
-        
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame with technical indicators
-            
-        Returns:
-        --------
-        List[IndicatorSignal]
-            List of signals from each indicator
-        """
-        signals = []
-        current_price = df['Close'].iloc[-1]
-        
-        # Trend Signals
-        self._add_trend_signals(df, signals)
-        
-        # Momentum Signals
-        self._add_momentum_signals(df, signals)
-        
-        # Volatility Signals
-        self._add_volatility_signals(df, signals)
-        
-        # Volume Signals
-        self._add_volume_signals(df, signals)
-        
-        # Cycle Signals
-        self._add_cycle_signals(df, signals)
-        
-        return signals
-        
-    def _add_trend_signals(self, df: pd.DataFrame, signals: List[IndicatorSignal]):
-        """Add signals from trend indicators"""
-        # MACD
-        if not df['MACD'].empty and not df['MACD_Signal'].empty:
-            macd = df['MACD'].iloc[-1]
-            signal = df['MACD_Signal'].iloc[-1]
-            hist = macd - signal
-            
-            signals.append(IndicatorSignal(
-                name='MACD',
-                value=hist,
-                signal='buy' if hist > 0 and macd > 0 else 'sell' if hist < 0 and macd < 0 else 'hold',
-                strength=min(abs(hist) / df['Close'].iloc[-1], 1),
-                timeframe='medium'
-            ))
-            
-        # Moving Averages
-        for period in [20, 50, 200]:
-            if f'SMA{period}' in df.columns:
-                sma = df[f'SMA{period}'].iloc[-1]
-                price = df['Close'].iloc[-1]
-                signals.append(IndicatorSignal(
-                    name=f'SMA{period}',
-                    value=sma,
-                    signal='buy' if price > sma else 'sell',
-                    strength=min(abs(price - sma) / price, 1),
-                    timeframe='long' if period == 200 else 'medium' if period == 50 else 'short'
-                ))
-                
-    def _add_momentum_signals(self, df: pd.DataFrame, signals: List[IndicatorSignal]):
-        """Add signals from momentum indicators"""
-        # RSI
-        if 'RSI' in df.columns:
-            rsi = df['RSI'].iloc[-1]
-            signals.append(IndicatorSignal(
-                name='RSI',
-                value=rsi,
-                signal='buy' if rsi < 30 else 'sell' if rsi > 70 else 'hold',
-                strength=min(abs(rsi - 50) / 50, 1),
-                timeframe='short'
-            ))
-            
-        # Stochastic
-        if 'STOCH_K' in df.columns and 'STOCH_D' in df.columns:
-            k = df['STOCH_K'].iloc[-1]
-            d = df['STOCH_D'].iloc[-1]
-            signals.append(IndicatorSignal(
-                name='Stochastic',
-                value=k,
-                signal='buy' if k > d and k < 20 else 'sell' if k < d and k > 80 else 'hold',
-                strength=min(abs(k - 50) / 50, 1),
-                timeframe='short'
-            ))
-            
-    def _add_volatility_signals(self, df: pd.DataFrame, signals: List[IndicatorSignal]):
-        """Add signals from volatility indicators"""
-        # Bollinger Bands
-        if all(x in df.columns for x in ['BB_Upper', 'BB_Middle', 'BB_Lower']):
-            price = df['Close'].iloc[-1]
-            upper = df['BB_Upper'].iloc[-1]
-            lower = df['BB_Lower'].iloc[-1]
-            signals.append(IndicatorSignal(
-                name='Bollinger',
-                value=price,
-                signal='buy' if price < lower else 'sell' if price > upper else 'hold',
-                strength=min(abs(price - df['BB_Middle'].iloc[-1]) / price, 1),
-                timeframe='medium'
-            ))
-            
-    def _add_volume_signals(self, df: pd.DataFrame, signals: List[IndicatorSignal]):
-        """Add signals from volume indicators"""
-        # OBV
-        if 'OBV' in df.columns:
-            obv = df['OBV'].iloc[-1]
-            obv_sma = df['OBV'].rolling(20).mean().iloc[-1]
-            signals.append(IndicatorSignal(
-                name='OBV',
-                value=obv,
-                signal='buy' if obv > obv_sma else 'sell',
-                strength=min(abs(obv - obv_sma) / abs(obv_sma), 1),
-                timeframe='medium'
-            ))
-            
-    def _add_cycle_signals(self, df: pd.DataFrame, signals: List[IndicatorSignal]):
-        """Add signals from cycle indicators"""
-        # Hurst Exponent
-        if 'HURST' in df.columns:
-            hurst = df['HURST'].iloc[-1]
-            signals.append(IndicatorSignal(
-                name='Hurst',
-                value=hurst,
-                signal='buy' if hurst > 0.6 else 'sell' if hurst < 0.4 else 'hold',
-                strength=min(abs(hurst - 0.5), 0.5) * 2,
-                timeframe='long'
-            ))
-            
-    def get_best_indicator_combinations(self, df: pd.DataFrame, top_n: int = 5) -> List[Dict]:
-        """
-        Get the best combinations of indicators based on historical performance
-        
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame with price data and indicators
-        top_n : int
-            Number of top combinations to return
-            
-        Returns:
-        --------
-        List[Dict]
-            List of best indicator combinations with their performance metrics
-        """
-        # Get uncorrelated indicators
-        uncorrelated = self.get_uncorrelated_indicators()
-        
-        # Get optimal indicators from PCA
-        optimal = self.get_optimal_indicator_set(df)
-        
-        # Combine both sets
-        candidate_indicators = list(set(uncorrelated + optimal))
-        
-        # Test different combinations
-        combinations = []
-        for i in range(3, min(7, len(candidate_indicators) + 1)):
-            for combo in itertools.combinations(candidate_indicators, i):
-                performance = self._evaluate_indicator_combination(df, combo)
-                combinations.append({
-                    'indicators': combo,
-                    'performance': performance
-                })
-                
-        # Sort by performance and return top N
-        combinations.sort(key=lambda x: x['performance']['sharpe_ratio'], reverse=True)
-        return combinations[:top_n]
-        
-    def _evaluate_indicator_combination(self, df: pd.DataFrame, indicators: List[str]) -> Dict:
-        """Evaluate performance of an indicator combination"""
-        signals = []
-        returns = []
-        
-        for i in range(100, len(df)):
-            window = df.iloc[:i]
-            signal = self._get_combined_signal(window[indicators])
-            
-            if signal != 'hold':
-                future_return = (df['Close'].iloc[i+1] - df['Close'].iloc[i]) / df['Close'].iloc[i]
-                returns.append(future_return if signal == 'buy' else -future_return)
-                
-        if not returns:
-            return {'sharpe_ratio': 0, 'win_rate': 0, 'avg_return': 0}
-            
-        returns = np.array(returns)
-        
-        return {
-            'sharpe_ratio': returns.mean() / returns.std() if returns.std() != 0 else 0,
-            'win_rate': (returns > 0).mean(),
-            'avg_return': returns.mean()
+        # Timeframe configurations
+        self.timeframes = {
+            'intraday': ['5m', '15m', '30m', '1h', '4h'],
+            'daily': ['1d'],
+            'weekly': ['1w'],
+            'monthly': ['1M']
         }
         
-    def _get_combined_signal(self, indicators_data: pd.DataFrame) -> str:
-        """Get combined signal from multiple indicators"""
-        signals = []
-        for indicator in indicators_data.columns:
-            if indicator in self.indicator_interpretation:
-                signal = self.indicator_interpretation[indicator](
-                    indicators_data[indicator].iloc[-1]
-                )
-                signals.append(signal)
-                
-        # Vote for final signal
-        buy_votes = signals.count('buy')
-        sell_votes = signals.count('sell')
-        
-        if buy_votes > len(signals) * 0.6:
-            return 'buy'
-        elif sell_votes > len(signals) * 0.6:
-            return 'sell'
-        return 'hold'
-        
-    # Indicator interpretation rules
-    indicator_interpretation = {
-        'RSI': lambda x: 'buy' if x < 30 else 'sell' if x > 70 else 'hold',
-        'MACD': lambda x: 'buy' if x > 0 else 'sell' if x < 0 else 'hold',
-        'ADX': lambda x: 'buy' if x > 25 else 'hold',
-        # Add more interpretation rules as needed
-    }
+        # Market regime thresholds
+        self.regime_thresholds = {
+            'volatility': {
+                'low': 10,  # percentile
+                'high': 90  # percentile
+            },
+            'volume': {
+                'low': 0.7,  # relative to moving average
+                'high': 1.5  # relative to moving average
+            },
+            'trend': {
+                'strong': 25,  # ADX threshold
+                'neutral': 20  # ADX threshold
+            }
+        }
     
-    def _calculate_relative_strength(self, stock_data: pd.Series, market_data: pd.Series) -> float:
-        """
-        Calculate relative strength safely, avoiding Series truth value ambiguity
+    def compute_all_indicators(self, df: pd.DataFrame, timeframe: str = '1d') -> pd.DataFrame:
+        """Compute all technical indicators for a given timeframe."""
         
-        Parameters:
-        -----------
-        stock_data : pd.Series
-            Stock price data
-        market_data : pd.Series
-            Market index data
-            
-        Returns:
-        --------
-        float
-            Relative strength value
-        """
-        try:
-            # Align data first
-            stock_data, market_data = self._standardize_periods(stock_data, market_data)
-            
-            if len(stock_data) < 2 or len(market_data) < 2:
-                return 0.0
-            
-            # Calculate returns
-            stock_returns = stock_data.pct_change().dropna()
-            market_returns = market_data.pct_change().dropna()
-            
-            # Calculate relative strength
-            stock_cumret = (1 + stock_returns).prod() - 1
-            market_cumret = (1 + market_returns).prod() - 1
-            
-            if market_cumret == 0:
-                return 0.0
-                
-            relative_strength = stock_cumret / market_cumret
-            
-            return relative_strength
-            
-        except Exception as e:
-            logger.error(f"Error calculating relative strength: {e}")
-            return 0.0
+        # Extract price data
+        close = df['Close'].iloc[:, 0].to_numpy(dtype=np.float64)
+        high = df['High'].iloc[:, 0].to_numpy(dtype=np.float64)
+        low = df['Low'].iloc[:, 0].to_numpy(dtype=np.float64)
+        open_price = df['Open'].iloc[:, 0].to_numpy(dtype=np.float64)
+        volume = df['Volume'].iloc[:, 0].to_numpy(dtype=np.float64)
+        
+        # 1. Trend Indicators
+        df['SMA20'] = talib.SMA(close, timeperiod=20)
+        df['SMA50'] = talib.SMA(close, timeperiod=50)
+        df['SMA200'] = talib.SMA(close, timeperiod=200)
+        df['EMA20'] = talib.EMA(close, timeperiod=20)
+        df['EMA50'] = talib.EMA(close, timeperiod=50)
+        df['EMA200'] = talib.EMA(close, timeperiod=200)
+        
+        # MACD
+        df['MACD'], df['MACD_Signal'], df['MACD_Hist'] = talib.MACD(close)
+        
+        # ADX and DI
+        df['ADX'] = talib.ADX(high, low, close, timeperiod=14)
+        df['DI_PLUS'] = talib.PLUS_DI(high, low, close, timeperiod=14)
+        df['DI_MINUS'] = talib.MINUS_DI(high, low, close, timeperiod=14)
+        
+        # Ichimoku Cloud
+        df['TENKAN'] = self._ichimoku_conversion(high, low, 9)
+        df['KIJUN'] = self._ichimoku_conversion(high, low, 26)
+        df['SENKOU_A'] = (df['TENKAN'] + df['KIJUN']) / 2
+        df['SENKOU_B'] = self._ichimoku_conversion(high, low, 52)
+        df['CHIKOU'] = pd.Series(close).shift(-26)
+        
+        # 2. Momentum Indicators
+        df['RSI'] = talib.RSI(close, timeperiod=14)
+        df['STOCH_K'], df['STOCH_D'] = talib.STOCH(high, low, close)
+        df['CCI'] = talib.CCI(high, low, close, timeperiod=20)
+        df['WILLR'] = talib.WILLR(high, low, close, timeperiod=14)
+        df['ROC'] = talib.ROC(close, timeperiod=10)
+        df['MFI'] = talib.MFI(high, low, close, volume, timeperiod=14)
+        
+        # 3. Volume Indicators
+        df['OBV'] = talib.OBV(close, volume)
+        df['AD'] = talib.AD(high, low, close, volume)
+        df['CMF'] = self._chaikin_money_flow(high, low, close, volume, period=20)
+        df['VWAP'] = self._vwap(high, low, close, volume)
+        df['EMV'] = self._calculate_emv(high, low, volume)
+        df['VQI'] = self._calculate_vqi(df, lookback=20)
+        
+        # 4. Volatility Indicators
+        df['BBANDS_UPPER'], df['BBANDS_MIDDLE'], df['BBANDS_LOWER'] = talib.BBANDS(close)
+        df['ATR'] = talib.ATR(high, low, close, timeperiod=14)
+        df['ATR_PERCENT'] = (df['ATR'] / close) * 100
+        df['STD20'] = talib.STDDEV(close, timeperiod=20)
+        
+        # Keltner Channels
+        typical_price = (high + low + close) / 3
+        df['KC_MIDDLE'] = talib.EMA(typical_price, timeperiod=20)
+        atr = talib.ATR(high, low, close, timeperiod=20)
+        df['KC_UPPER'] = df['KC_MIDDLE'] + (2 * atr)
+        df['KC_LOWER'] = df['KC_MIDDLE'] - (2 * atr)
+        
+        # 5. Custom Composite Indicators
+        df['TREND_STRENGTH'] = self._calculate_trend_strength(df)
+        df['VOL_REGIME'] = self._calculate_volatility_regime(df)
+        df['MOMENTUM_QUALITY'] = self._calculate_momentum_quality(df)
+        df['VAM'] = self._calculate_vam(df)  # Volatility Adjusted Momentum
+        df['TSI'] = self._calculate_tsi(df)  # Trend Strength Index
+        
+        # Add market regime detection
+        regime = self.detect_market_regime(df)
+        df['MARKET_TREND'] = regime.trend
+        df['MARKET_VOLATILITY'] = regime.volatility
+        df['MARKET_VOLUME'] = regime.volume
+        df['MARKET_MOMENTUM'] = regime.momentum
+        df['REGIME_CONFIDENCE'] = regime.confidence
+        
+        return df
     
-    def calculate_relative_strength(self, stock_df: pd.DataFrame, market_df: pd.DataFrame) -> Dict[str, float]:
-        """
-        Calculate relative strength against multiple market indices using the centralized implementation.
+    def detect_market_regime(self, df: pd.DataFrame) -> MarketRegime:
+        """Detect current market regime using multiple indicators."""
+        # Trend Analysis
+        adx = df['ADX'].iloc[-1]
+        di_plus = df['DI_PLUS'].iloc[-1]
+        di_minus = df['DI_MINUS'].iloc[-1]
         
-        Parameters:
-        -----------
-        stock_df : pd.DataFrame
-            Stock price data with Close column
-        market_df : pd.DataFrame
-            Market indices data with columns for each index
-            
-        Returns:
-        --------
-        Dict[str, float]
-            Dictionary of relative strength metrics against each market index
-        """
-        try:
-            if 'Close' not in stock_df.columns:
-                logger.warning("Close column not found in stock data")
-                return {}
+        if adx > self.regime_thresholds['trend']['strong']:
+            trend = 'uptrend' if di_plus > di_minus else 'downtrend'
+        elif adx < self.regime_thresholds['trend']['neutral']:
+            trend = 'sideways'
+        else:
+            trend = 'undefined'
+        
+        # Volatility Analysis
+        current_atr = df['ATR_PERCENT'].iloc[-1]
+        atr_percentile = stats.percentileofscore(df['ATR_PERCENT'].dropna(), current_atr)
+        
+        if atr_percentile > self.regime_thresholds['volatility']['high']:
+            volatility = 'high'
+        elif atr_percentile < self.regime_thresholds['volatility']['low']:
+            volatility = 'low'
+        else:
+            volatility = 'normal'
+        
+        # Volume Analysis
+        volume_ma = df['Volume'].rolling(window=20).mean()
+        relative_volume = df['Volume'].iloc[-1] / volume_ma.iloc[-1]
+        
+        if relative_volume > self.regime_thresholds['volume']['high']:
+            volume = 'high'
+        elif relative_volume < self.regime_thresholds['volume']['low']:
+            volume = 'low'
+        else:
+            volume = 'normal'
+        
+        # Momentum Analysis
+        rsi = df['RSI'].iloc[-1]
+        mfi = df['MFI'].iloc[-1]
+        macd_hist = df['MACD_Hist'].iloc[-1]
+        
+        if (rsi > 60 and mfi > 60) or macd_hist > 0:
+            momentum = 'strong'
+        elif (rsi < 40 and mfi < 40) or macd_hist < 0:
+            momentum = 'weak'
+        else:
+            momentum = 'neutral'
+        
+        # Calculate regime confidence
+        trend_conf = min(adx / 100, 1.0)
+        vol_conf = abs(atr_percentile - 50) / 50
+        momentum_conf = abs(rsi - 50) / 50
+        
+        confidence = (trend_conf + vol_conf + momentum_conf) / 3
+        
+        return MarketRegime(
+            trend=trend,
+            volatility=volatility,
+            volume=volume,
+            momentum=momentum,
+            confidence=confidence
+        )
+    
+    def _calculate_vqi(self, df: pd.DataFrame, lookback: int = 20) -> pd.Series:
+        """Calculate Volume Quality Index."""
+        # Price-volume correlation
+        price_change = df['Close'].pct_change()
+        volume_relative = df['Volume'] / df['Volume'].rolling(lookback).mean()
+        
+        # Volume trend from OBV
+        obv_trend = df['OBV'].diff().rolling(lookback).mean()
+        
+        # Volume consistency
+        volume_std = df['Volume'].rolling(lookback).std() / df['Volume'].rolling(lookback).mean()
+        
+        # Combine into volume quality
+        vqi = (0.4 * np.sign(price_change) * np.sign(volume_relative - 1) +
+               0.4 * np.sign(obv_trend) +
+               0.2 * (1 - volume_std))
+        
+        return vqi
+    
+    def _calculate_emv(self, high: np.ndarray, low: np.ndarray, volume: np.ndarray) -> np.ndarray:
+        """Calculate Ease of Movement (EMV)"""
+        high_low = (high + low) / 2
+        move = high_low - np.roll(high_low, 1)
+        ratio = volume / (high - low)
+        emv = move / ratio
+        return pd.Series(emv).rolling(window=14).mean()
+    
+    def _calculate_trend_strength(self, df: pd.DataFrame) -> pd.Series:
+        """Calculate composite trend strength indicator."""
+        # Directional movement
+        ema_direction = np.sign(df['EMA20'] - df['EMA50'])
+        
+        # ADX strength scaling
+        adx_strength = df['ADX'] / 100
+        
+        # MACD signal
+        macd_signal = np.sign(df['MACD'] - df['MACD_Signal'])
+        
+        # Combine indicators
+        trend_strength = (0.4 * ema_direction + 
+                        0.4 * adx_strength * np.sign(df['DI_PLUS'] - df['DI_MINUS']) + 
+                        0.2 * macd_signal)
+        
+        return trend_strength
+    
+    def _calculate_vam(self, df: pd.DataFrame) -> pd.Series:
+        """Calculate Volatility Adjusted Momentum."""
+        # Price momentum
+        returns = df['Close'].pct_change()
+        momentum = returns.rolling(window=14).mean()
+        
+        # Volatility scaling
+        volatility = returns.rolling(window=14).std()
+        
+        # Adjust momentum by volatility
+        vam = momentum / volatility
+        
+        return vam
+
+    def _ichimoku_conversion(self, high: np.ndarray, low: np.ndarray, period: int) -> pd.Series:
+        """Calculate Ichimoku conversion line."""
+        period_high = pd.Series(high).rolling(window=period).max()
+        period_low = pd.Series(low).rolling(window=period).min()
+        return (period_high + period_low) / 2
+
+    def _calculate_supertrend(self, df: pd.DataFrame, period: int = 10, multiplier: float = 3.0) -> Tuple[pd.Series, pd.Series]:
+        """Calculate Supertrend indicator."""
+        atr = talib.ATR(df['High'].iloc[:, 0], df['Low'].iloc[:, 0], df['Close'].iloc[:, 0], timeperiod=period)
+        
+        # Calculate basic upper and lower bands
+        basic_upperband = (df['High'].iloc[:, 0] + df['Low'].iloc[:, 0]) / 2 + multiplier * atr
+        basic_lowerband = (df['High'].iloc[:, 0] + df['Low'].iloc[:, 0]) / 2 - multiplier * atr
+        
+        # Initialize final upper and lower bands
+        final_upperband = basic_upperband.copy()
+        final_lowerband = basic_lowerband.copy()
+        
+        for i in range(1, len(df)):
+            if basic_upperband[i] < final_upperband[i-1] and df['Close'].iloc[i-1, 0] <= final_upperband[i-1]:
+                final_upperband[i] = final_upperband[i-1]
+            if basic_lowerband[i] > final_lowerband[i-1] and df['Close'].iloc[i-1, 0] >= final_lowerband[i-1]:
+                final_lowerband[i] = final_lowerband[i-1]
                 
-            # Use centralized RS calculation
-            return calculate_relative_strength_metrics(
-                stock_data=stock_df['Close'],
-                market_data=market_df,
-                window=90,  # Use default window
-                min_periods=20  # Use default minimum periods
-            )
-            
-        except Exception as e:
-            logger.error(f"Error calculating relative strength metrics: {e}")
-            return {}
+        # Calculate Supertrend
+        supertrend = pd.Series(index=df.index, dtype=float)
+        direction = pd.Series(index=df.index, dtype=int)
+        
+        for i in range(len(df)):
+            if i == 0:
+                supertrend[i] = final_upperband[i]
+                direction[i] = 1
+            else:
+                if supertrend[i-1] == final_upperband[i-1]:
+                    if df['Close'].iloc[i, 0] > final_upperband[i]:
+                        supertrend[i] = final_lowerband[i]
+                        direction[i] = -1
+                    else:
+                        supertrend[i] = final_upperband[i]
+                        direction[i] = 1
+                else:
+                    if df['Close'].iloc[i, 0] < final_lowerband[i]:
+                        supertrend[i] = final_upperband[i]
+                        direction[i] = 1
+                    else:
+                        supertrend[i] = final_lowerband[i]
+                        direction[i] = -1
+        
+        return supertrend, direction
+
+    def _chaikin_money_flow(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, 
+                        volume: np.ndarray, period: int = 20) -> np.ndarray:
+        """Calculate Chaikin Money Flow"""
+        high_low = high - low
+        high_low[high_low == 0] = 0.01  # Avoid division by zero
+        mf_multiplier = ((close - low) - (high - close)) / high_low
+        mf_volume = mf_multiplier * volume
+        cmf = pd.Series(mf_volume).rolling(window=period).sum() / pd.Series(volume).rolling(window=period).sum()
+        return cmf
+
+    def _vwap(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, 
+          volume: np.ndarray) -> np.ndarray:
+        """Calculate Volume Weighted Average Price"""
+        typical_price = (high + low + close) / 3
+        vwap = pd.Series(typical_price * volume).cumsum() / pd.Series(volume).cumsum()
+        return vwap
+
+    def _supertrend(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, 
+                period: int = 10, multiplier: float = 3) -> Tuple[np.ndarray, np.ndarray]:
+        """Calculate SuperTrend indicator"""
+        atr = talib.ATR(high, low, close, timeperiod=period)
+        
+        # Basic Upper and Lower Bands
+        basic_upper = (high + low) / 2 + (multiplier * atr)
+        basic_lower = (high + low) / 2 - (multiplier * atr)
+        
+        # Initialize SuperTrend
+        supertrend = np.zeros_like(close)
+        direction = np.zeros_like(close)  # 1 for uptrend, -1 for downtrend
+        
+        # First value
+        if close[0] <= basic_upper[0]:
+            supertrend[0] = basic_upper[0]
+            direction[0] = -1
+        else:
+            supertrend[0] = basic_lower[0]
+            direction[0] = 1
+        
+        # Calculate SuperTrend
+        for i in range(1, len(close)):
+            if close[i-1] <= supertrend[i-1]:  # Downtrend
+                supertrend[i] = min(basic_upper[i], supertrend[i-1])
+                if close[i] > supertrend[i]:
+                    direction[i] = 1
+                else:
+                    direction[i] = -1
+            else:  # Uptrend
+                supertrend[i] = max(basic_lower[i], supertrend[i-1])
+                if close[i] < supertrend[i]:
+                    direction[i] = -1
+                else:
+                    direction[i] = 1
+        
+        return supertrend, direction
+
+    def _demark_indicators(self, close: np.ndarray, high: np.ndarray, low: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Calculate DeMark Setup and Countdown"""
+        setup = np.zeros_like(close)
+        countdown = np.zeros_like(close)
+        
+        # Setup calculation
+        for i in range(4, len(close)):
+            if close[i] > close[i-4]:
+                setup[i] = min(setup[i-1] + 1, 9) if setup[i-1] > 0 else 1
+            elif close[i] < close[i-4]:
+                setup[i] = max(setup[i-1] - 1, -9) if setup[i-1] < 0 else -1
+            else:
+                setup[i] = 0
+        
+        # Countdown calculation
+        setup_complete = False
+        count = 0
+        for i in range(4, len(close)):
+            if setup[i] >= 9:
+                if not setup_complete:
+                    setup_complete = True
+                    count = 0
+                if close[i] > high[i-2]:
+                    count += 1
+                    countdown[i] = min(count, 13)
+            elif setup[i] <= -9:
+                if not setup_complete:
+                    setup_complete = True
+                    count = 0
+                if close[i] < low[i-2]:
+                    count += 1
+                    countdown[i] = min(count, -13)
+        
+        return setup, countdown
+
+    def _add_pivot_points(self, df: pd.DataFrame) -> None:
+        """Add pivot points and support/resistance levels"""
+        high = df['High'].iloc[:, 0]
+        low = df['Low'].iloc[:, 0]
+        close = df['Close'].iloc[:, 0]
+        
+        # Calculate Pivot Point (PP)
+        df['PP'] = (high + low + close) / 3
+        
+        # Calculate Support and Resistance levels
+        df['R1'] = (2 * df['PP']) - low
+        df['S1'] = (2 * df['PP']) - high
+        df['R2'] = df['PP'] + (high - low)
+        df['S2'] = df['PP'] - (high - low)
+        df['R3'] = high + 2 * (df['PP'] - low)
+        df['S3'] = low - 2 * (high - df['PP'])
+
+    def _add_fibonacci_levels(self, df: pd.DataFrame) -> None:
+        """Add Fibonacci retracement levels"""
+        high = df['High'].iloc[:, 0]
+        low = df['Low'].iloc[:, 0]
+        
+        # Calculate range
+        price_range = high - low
+        
+        # Calculate Fibonacci levels
+        df['FIB_382'] = high - (price_range * 0.382)
+        df['FIB_500'] = high - (price_range * 0.500)
+        df['FIB_618'] = high - (price_range * 0.618)

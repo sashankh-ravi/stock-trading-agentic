@@ -65,33 +65,11 @@ python train.py
 
 ## Documentation
 
-The complete documentation for this system is available in multiple formats:
+The complete documentation for this system is available in our master documentation:
 
-### Comprehensive Technical Documentation
+- [**Master Documentation**](docs/MASTER_DOCUMENTATION.md): Comprehensive documentation covering all aspects of the system
 
-- [**Technical Indicators Guide**](docs/TECHNICAL_INDICATORS.md): Detailed explanations of all 97 technical indicators with formulas, examples, and usage guidelines
-- [**Data Download System**](docs/DATA_DOWNLOAD_SYSTEM.md): Complete documentation of the data collection and processing framework
-- [**System Documentation**](docs/COMPREHENSIVE_DOCUMENTATION.md): Overall system architecture and implementation details
-
-### System Design and Analysis
-
-- [**Trading System Thesis**](docs/nifty500_trading_system_thesis.md): Comprehensive analysis and design principles
-- [**Pattern Analysis Guide**](docs/comprehensive_pattern_guide_enhanced.md): Complete guide to candlestick and chart patterns
-- [**Performance Metrics**](docs/nifty500_trading_system_thesis.md#performance-metrics): Detailed performance analysis and metrics
-
-### Implementation Reference
-
-- [**Getting Started**](docs/index.md#getting-started): Installation and setup instructions
-- [**API Documentation**](docs/index.md#implementation-files): Code-level documentation
-- [**Examples**](docs/index.md#examples-visualizations): Sample implementations and visualizations
-
-Each document includes:
-- Detailed explanations with examples
-- Mathematical formulas and calculations
-- Code snippets and implementation details
-- Configuration options and best practices
-- Performance analysis and optimization tips
-- Troubleshooting guides and common issues
+All other documentation files have been consolidated into the master documentation for easier reference.
 
 ## License
 

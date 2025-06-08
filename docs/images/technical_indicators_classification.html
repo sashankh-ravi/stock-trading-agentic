@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Technical Indicators Classification</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .diagram-container { margin-bottom: 40px; border: 1px solid #eee; padding: 20px; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Technical Indicators Classification</h1>
+    <div class="diagram-container">
+        <div class="mermaid">
+mindmap
+  root((Technical Indicators))
+    Trend Indicators
+      SMA
+        ::icon(fa fa-line-chart)
+        SMA_20
+        SMA_50
+        SMA_200
+      EMA
+        ::icon(fa fa-line-chart)
+        EMA_20
+        EMA_50
+      MACD
+        ::icon(fa fa-line-chart)
+        MACD
+        MACD_Signal
+        MACD_Hist
+      Ichimoku
+        ::icon(fa fa-cloud)
+        Tenkan_Sen
+        Kijun_Sen
+        Senkou_Span_A
+        Senkou_Span_B
+        Chikou_Span
+    Momentum Indicators
+      ::icon(fa fa-dashboard)
+      RSI
+      Stochastic
+        Stoch_K
+        Stoch_D
+      CCI
+      ROC
+        ROC_5
+        ROC_10
+        ROC_21
+        ROC_63
+      Momentum
+    Volatility Indicators
+      ::icon(fa fa-area-chart)
+      Bollinger Bands
+        Bollinger_Upper
+        Bollinger_Middle
+        Bollinger_Lower
+        Bollinger_Width
+      ATR
+      Volatility Metrics
+        </div>
+    </div>
+    
+    <p>This diagram provides a comprehensive categorization of the technical indicators used in the pipeline.</p>
+
+    <p><i>Note: Take a screenshot of this diagram and save it as technical_indicators_classification.png in the docs/images folder</i></p>
+</body>
+</html>

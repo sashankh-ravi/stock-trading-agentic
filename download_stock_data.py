@@ -64,6 +64,7 @@ def download_stock_data(
     while attempts < retry_count:
         # Removed try-except to expose actual errors
         if start_date and end_date:
+            print(start_date, end_date)
             data = yf.download(
                 symbol, 
                 start=start_date, 
