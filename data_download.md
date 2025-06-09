@@ -3719,7 +3719,7 @@ def parallel_indicator_calculation(data_dict, num_processes=4):
     
     return combined_results
 ```
-
+added back
 **Caching Strategy:**
 ```python
 @lru_cache(maxsize=1000)
