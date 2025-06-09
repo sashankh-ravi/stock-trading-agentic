@@ -48,7 +48,7 @@ NIFTY_500_SAMPLE = [
 
 def select_test_symbol():
     """Select random symbol for testing"""
-    symbol = "RELIANCE.NS"#random.choice(NIFTY_500_SAMPLE)
+    symbol = random.choice(NIFTY_500_SAMPLE)
     logger.info(f"Randomly selected symbol: {symbol}")
     return symbol
 
