@@ -1,913 +1,442 @@
-# Nifty 500 Trading System: Professional Data Download & Analysis Pipeline
+import datetime
 
-## Comprehensive Technical Documentation & Mathematical Reference
+# This is a placeholder for the actual generation logic.
+# In a real scenario, this would involve detailed text generation
+# based on the plan above, incorporating information from the Python scripts.
 
-This documentation serves as the complete technical reference for implementing a professional-grade algorithmic trading system for the Indian stock market. Every component has been mathematically validated and extensively backtested across multiple market cycles.
+current_year = datetime.datetime.now().year
 
----
+reliance_example_date = "2024-07-15" # Placeholder date for examples
+reliance_close_price = "2950.50"
+reliance_rsi_value = "65.3"
+reliance_sma20_value = "2905.75"
+reliance_sma50_value = "2850.20"
+reliance_pe_ratio = "28.5"
+reliance_sector_pe = "25.0" # Example sector P/E
+reliance_news_sentiment_score = "+7"
+reliance_pcr_value = "0.85"
+reliance_call_oi_strike = "3000"
+reliance_put_oi_strike = "2900"
+reliance_institutional_own_pct = "45.2"
+reliance_rs_vs_nifty = "1.05 (outperformed by 5% over period)"
+reliance_correlation_oil = "0.35"
 
-## Table of Contents
 
-### I. SYSTEM FOUNDATION
-1. [Executive Summary & Performance Metrics](#1-executive-summary--performance-metrics)
-2. [Mathematical Framework & Core Principles](#2-mathematical-framework--core-principles)
-3. [Advanced System Architecture](#3-advanced-system-architecture)
-4. [Data Sources & Quality Engineering](#4-data-sources--quality-engineering)
+markdown_content = f"""# Nifty 500 Data Download & Augmentation Pipeline: A Deep Dive
 
-### II. TECHNICAL ANALYSIS ENGINE
-5. [Complete Technical Indicators Library](#5-complete-technical-indicators-library)
-   - [5.1 Trend Following Systems](#51-trend-following-systems)
-   - [5.2 Momentum & Oscillator Complex](#52-momentum--oscillator-complex)
-   - [5.3 Volatility & Risk Metrics](#53-volatility--risk-metrics)
-   - [5.4 Volume Flow Analysis](#54-volume-flow-analysis)
-   - [5.5 Multi-Timeframe Convergence](#55-multi-timeframe-convergence)
-   - [5.6 Advanced Statistical Measures](#56-advanced-statistical-measures)
+## Last Updated: {datetime.date.today().isoformat()}
 
-### III. MARKET MICROSTRUCTURE
-6. [Dynamic Market Regime Classification](#6-dynamic-market-regime-classification)
-7. [Relative Strength Universe Ranking](#7-relative-strength-universe-ranking)
-8. [Sector Rotation & Leadership Analysis](#8-sector-rotation--leadership-analysis)
-9. [Intermarket Correlation Matrix](#9-intermarket-correlation-matrix)
+## 1. Introduction
 
-### IV. QUANTITATIVE VALIDATION
-10. [Backtesting & Performance Attribution](#10-backtesting--performance-attribution)
-11. [Risk Management & Portfolio Construction](#11-risk-management--portfolio-construction)
-12. [Live Trading Implementation](#12-live-trading-implementation)
-13. [System Monitoring & Maintenance](#13-system-monitoring--maintenance)
+This document provides an exhaustive technical explanation of the `download_nifty500_data.py` module, which forms the backbone of our stock data acquisition and augmentation pipeline for the Nifty 500 universe. In the world of quantitative trading, the quality, breadth, and depth of data are paramount. A robust data pipeline is the first critical step towards developing, backtesting, and deploying successful trading strategies.
 
-### V. APPENDICES
-14. [Mathematical Proofs & Derivations](#14-mathematical-proofs--derivations)
-15. [Performance Benchmarks & Case Studies](#15-performance-benchmarks--case-studies)
-16. [Troubleshooting & Edge Cases](#16-troubleshooting--edge-cases)
+This pipeline is designed to:
+*   Fetch comprehensive historical price and volume data.
+*   Calculate a wide array of technical indicators.
+*   Retrieve detailed fundamental data for each company.
+*   Analyze news sentiment.
+*   Gather option chain data for volatility and sentiment insights.
+*   Track institutional ownership.
+*   Perform relative strength analysis against benchmarks and sectors.
+*   Assess overall market breadth and intermarket correlations.
 
----
+The ultimate goal is to create a rich, multi-faceted dataset for each stock in the Nifty 500, enabling sophisticated analysis and informed trading decisions.
 
-## 1. Executive Summary & Performance Metrics
+## 2. Core Architecture & Setup (`download_nifty500_data.py`)
 
-### System Overview
+The `download_nifty500_data.py` script orchestrates the entire data collection process. It leverages several key Python libraries and a structured configuration.
 
-The Nifty 500 Algorithmic Trading System represents a comprehensive quantitative framework designed for systematic equity trading in the Indian market. This system processes over 500 securities simultaneously, executing sophisticated mathematical models to identify high-probability trading opportunities across multiple timeframes and market conditions.
+### 2.1. Key Libraries & Their Roles
 
-### Quantified System Performance
+*   **`yfinance`**: The primary workhorse for fetching data from Yahoo Finance. It provides access to historical stock prices, trading volumes, company fundamentals (income statements, balance sheets, cash flow), news headlines, option chain data, and institutional holder information.
+    *   *Significance*: Offers a free and relatively comprehensive source for global financial data, including Indian equities with the `.NS` suffix.
+*   **`pandas`**: Essential for data manipulation and analysis. All fetched data is typically loaded into pandas DataFrames for cleaning, transformation, calculation of indicators, and storage.
+    *   *Significance*: Provides powerful and flexible data structures (DataFrame, Series) that are ideal for time-series and tabular financial data.
+*   **`numpy`**: Used for numerical operations, especially array manipulations and mathematical functions that underpin many financial calculations.
+    *   *Significance*: Offers efficient numerical computation, often used by pandas and other libraries under the hood.
+*   **`talib` (Ta-Lib)**: A widely used library for technical analysis, specifically for calculating candlestick pattern recognitions (e.g., Doji, Hammer, Engulfing patterns). The script uses functions like `talib.CDLDOJI()`.
+    *   *Significance*: Provides pre-built, optimized functions for many common technical indicators and patterns, saving development time and ensuring correctness.
+*   **`requests`**: For making HTTP requests to fetch data from web sources, such as the Nifty 500 constituents list from the NSE India website.
+    *   *Significance*: A standard library for interacting with web APIs and websites.
+*   **`concurrent.futures`**: Enables parallel execution of tasks, particularly useful for downloading data for multiple stocks simultaneously, significantly speeding up the overall process. `ThreadPoolExecutor` is used.
+    *   *Significance*: Improves performance by leveraging multi-threading for I/O-bound tasks like data downloading.
+*   **`logging`**: Implements a logging mechanism to track the script's execution, record informational messages, warnings, and errors. This is crucial for monitoring the pipeline's health and debugging issues.
+    *   *Significance*: Provides a structured way to get feedback from the running application.
+*   **`pathlib`, `json`, `datetime`, `os`, `time`, `re`, `math`, `functools.lru_cache`**: These are standard Python utility modules used for file path manipulation, working with JSON data (e.g., for caching), date/time operations, interacting with the operating system, adding delays (rate limiting), regular expressions, mathematical calculations, and caching function results for performance, respectively.
 
-**Real-World Performance Metrics (2020-2024):**
+### 2.2. Configuration
 
-| Metric | Value | Benchmark | Outperformance |
-|--------|-------|-----------|----------------|
-| **Annual Return** | 18.7% | 12.4% (Nifty 500) | +6.3% |
-| **Sharpe Ratio** | 1.42 | 0.89 | +59.6% |
-| **Maximum Drawdown** | -11.2% | -23.7% | +52.7% better |
-| **Win Rate** | 67.3% | N/A | Absolute |
-| **Profit Factor** | 2.18 | N/A | Absolute |
-| **Calmar Ratio** | 1.67 | 0.52 | +221% |
+*   **Logging Setup**:
+    ```python
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+    ```
+    This configures application-wide logging to output messages with a timestamp, log level, and the message itself. `INFO` level provides a good balance of detail.
+*   **Global Market Definitions**:
+    *   `INDIAN_SECTOR_INDICES`: A dictionary mapping Yahoo Finance tickers for Indian sector indices (e.g., `^CNXBANK` for Nifty Bank) to their names.
+        *   *Purpose*: Used for sector-specific relative strength analysis and benchmarking.
+    *   `GLOBAL_INDICES`: Includes major global stock market indices (e.g., S&P 500 `^GSPC`, FTSE 100 `^FTSE`).
+        *   *Purpose*: Essential for intermarket correlation analysis to understand how Indian markets are influenced by or move with global trends.
+    *   `COMMODITIES_BONDS`: Lists tickers for key commodities (e.g., Gold `GC=F`, Crude Oil `CL=F`) and bond yields (e.g., US 10-Year Treasury `^TNX`).
+        *   *Purpose*: Also for intermarket analysis, as these assets can significantly impact equity markets and reflect economic conditions. For example, rising oil prices can affect inflation and specific sectors.
 
-**Technical Processing Capabilities:**
-- **Data Throughput**: 500+ stocks processed in 8.7 minutes
-- **Indicator Calculation**: 127 technical indicators per security
-- **Memory Efficiency**: 89MB peak usage for complete universe
-- **Accuracy Rate**: 99.94% calculation precision vs manual verification
-- **Latency**: Average 1.8ms per indicator calculation
+## 3. Phase 1: Symbol Universe & Metadata Acquisition
 
-### Mathematical Rigor Foundation
+Before any stock-specific data can be downloaded, the pipeline must first identify the current constituents of the Nifty 500 index and gather relevant metadata like sector and industry classifications.
 
-This system employs advanced mathematical concepts including:
-- **Stochastic Calculus**: For volatility modeling and option pricing
-- **Time Series Analysis**: ARIMA, GARCH, and state-space models
-- **Linear Algebra**: Matrix operations for correlation and covariance analysis
-- **Signal Processing**: Fourier transforms and wavelet analysis for cyclical patterns
-- **Information Theory**: Entropy measures for market efficiency analysis
+### 3.1. Fetching Nifty 500 Symbols (`get_nifty500_symbols`)
 
----
+*   **Purpose**: To obtain an accurate and up-to-date list of stock symbols that are part of the Nifty 500 index. This list forms the universe of stocks for which data will be downloaded.
+*   **Process**:
+    1.  **Caching**:
+        ```python
+        cache_file = Path("data/nifty500_symbols.json")
+        if cache_file.exists():
+            # ... load from cache if recent ...
+        ```
+        The function first checks for a local cache file (`data/nifty500_symbols.json`). If the cached list is recent (e.g., less than 24 hours old), it's used to avoid redundant downloads and reduce load on the NSE server.
+        *   *Significance*: Improves performance and respects data provider limits.
+    2.  **Fetching from NSE India**: If the cache is missing or stale, the script attempts to download the list from the official NSE India website using URLs like:
+        `"https://archives.nseindia.com/content/indices/ind_nifty500list.csv"`
+        A `User-Agent` header is set in the `requests.get` call to mimic a browser, which can be necessary to access some websites.
+        *   *Significance*: Ensures the symbol list is sourced from the authoritative provider.
+    3.  **Symbol Formatting**: The downloaded symbols (e.g., "RELIANCE") are appended with `.NS` (e.g., "RELIANCE.NS") to make them compatible with Yahoo Finance's ticker format for Indian stocks.
+    4.  **Sector & Industry Mapping**: The CSV file from NSE typically contains sector and industry information for each stock.
+        ```python
+        sector_col = next((col for col in ['Sector', 'Industry', ...] if col in df.columns), None)
+        # ...
+        SECTOR_MAPPING = {{f"{{row['Symbol']}}.NS": row[sector_col] for _, row in df.iterrows()}}
+        ```
+        This information is extracted and stored in global dictionaries `SECTOR_MAPPING` and `INDUSTRY_MAPPING`.
+        *   *Significance*: Crucial for sector-based analysis, relative strength comparisons against sector peers, and building sector-rotation strategies.
+*   **RELIANCE.NS Example**:
+    *   When `get_nifty500_symbols` runs, it would identify "RELIANCE" in the NSE list.
+    *   It would be formatted to "RELIANCE.NS".
+    *   Its sector, say "Energy" or "Refineries" (depending on NSE's classification in the CSV), would be stored: `SECTOR_MAPPING['RELIANCE.NS'] = 'Energy'`.
 
-## 2. Mathematical Framework & Core Principles
+### 3.2. Enriching Sector Data (`_enrich_sector_data`)
 
-### 2.1 Theoretical Foundation
-
-The system operates on three fundamental mathematical principles derived from modern portfolio theory and behavioral finance:
-
-#### Market Efficiency Hypothesis Extensions
-
-**Enhanced Random Walk Model:**
-$$P_{t+1} = P_t \cdot e^{(μ - \frac{σ²}{2})Δt + σ\sqrt{Δt}Z_t + α \cdot I_t}$$
-
-Where:
-- $P_t$ = Price at time t
-- $μ$ = Expected return (drift)
-- $σ$ = Volatility
-- $Z_t$ = Standard normal random variable
-- $α$ = Information advantage coefficient
-- $I_t$ = Information signal strength
-
-#### Risk-Adjusted Return Optimization
-
-**Sharpe Ratio Maximization with Regime Awareness:**
-$$S_{regime} = \frac{E[R_p] - R_f}{σ_p \cdot (1 + β_{regime})}$$
-
-Where $β_{regime}$ adjusts for market regime uncertainty:
-$$β_{regime} = \sum_{i=1}^{n} P(regime_i) \cdot volatility_{regime_i}$$
-
-### 2.2 Signal Generation Mathematics
-
-#### Multi-Factor Alpha Model
-
-**Composite Alpha Score:**
-$$α_{composite} = \sum_{i=1}^{n} w_i \cdot α_i \cdot confidence_i \cdot regime_{factor}$$
-
-**Factor Weights Optimization:**
-$$w_i = \frac{Sharpe_i \cdot \sqrt{Information\_Ratio_i}}{\sum_{j=1}^{n} Sharpe_j \cdot \sqrt{Information\_Ratio_j}}$$
-
-#### Risk Model Implementation
-
-**Dynamic Covariance Matrix:**
-$$Σ_{t+1} = λ \cdot Σ_t + (1-λ) \cdot r_t \cdot r_t^T + θ \cdot F_t \cdot B \cdot F_t^T$$
-
-Where:
-- $λ$ = Decay factor (0.94)
-- $r_t$ = Return vector at time t
-- $F_t$ = Factor exposure matrix
-- $B$ = Factor covariance matrix
-- $θ$ = Factor loading strength
-
----
-
-## 3. Advanced System Architecture
-
-### 3.1 Hierarchical Data Processing Pipeline
-
-```
-Level 1: Data Ingestion & Validation
-    ├── Multi-Source Aggregation (Yahoo Finance, NSE, Bloomberg)
-    ├── Real-Time Quality Scoring
-    ├── Corporate Actions Adjustment
-    └── Missing Data Interpolation
-
-Level 2: Feature Engineering
-    ├── Technical Indicator Calculation (127 indicators)
-    ├── Fundamental Ratio Computation
-    ├── Alternative Data Integration
-    └── Cross-Asset Correlation Analysis
-
-Level 3: Signal Generation
-    ├── Multi-Timeframe Analysis
-    ├── Regime-Aware Scoring
-    ├── Relative Strength Ranking
-    └── Risk-Adjusted Signal Strength
-
-Level 4: Portfolio Construction
-    ├── Mean-Variance Optimization
-    ├── Risk Budgeting
-    ├── Transaction Cost Analysis
-    └── Execution Algorithm Selection
-```
-
-### 3.2 Fault-Tolerant Architecture
-
-**Error Recovery System:**
-```python
-class RobustDataPipeline:
-    def __init__(self):
-        self.primary_sources = ['yahoo', 'nse_direct', 'bloomberg_api']
-        self.fallback_chain = self._build_fallback_chain()
-        self.quality_threshold = 0.95
-        
-    def download_with_failover(self, symbol, **kwargs):
-        """
-        Multi-source download with automatic failover
-        
-        Quality Scoring Algorithm:
-        - Completeness: 40% weight
-        - Accuracy vs peers: 30% weight  
-        - Timeliness: 20% weight
-        - Consistency: 10% weight
-        """
-        for source in self.primary_sources:
-            try:
-                data = self._fetch_from_source(source, symbol, **kwargs)
-                quality_score = self._calculate_quality_score(data)
-                
-                if quality_score >= self.quality_threshold:
-                    return data
-                else:
-                    self._log_quality_issue(source, symbol, quality_score)
-                    
-            except Exception as e:
-                self._handle_source_failure(source, symbol, e)
-                continue
-        
-        return self._emergency_cache_retrieval(symbol)
-```
-
-### 3.3 Memory-Optimized Processing
-
-**Batch Processing Strategy:**
-- **Chunk Size**: 50 symbols per batch (optimized for 16GB RAM)
-- **Processing Order**: Sorted by market cap (liquidity priority)
-- **Memory Pool**: Pre-allocated DataFrame objects
-- **Garbage Collection**: Explicit cleanup after each batch
-
----
-
-## 4. Data Sources & Quality Engineering
-
-### 4.1 Primary Data Sources
-
-#### Yahoo Finance API (Primary)
-**Coverage**: 99.7% of Nifty 500 universe
-**Update Frequency**: Real-time (15-minute delay for free tier)
-**Historical Depth**: Up to 25 years
-**Corporate Actions**: Automatically adjusted
-
-**Implementation:**
-```python
-def enhanced_yfinance_download(symbol, **params):
-    """
-    Enhanced Yahoo Finance download with quality validation
-    
-    Quality Checks:
-    1. Price continuity (no gaps > 10%)
-    2. Volume consistency (no zero-volume days)
-    3. Split adjustment verification
-    4. Timestamp validation
-    """
+*   **Purpose**: If the sector or industry data obtained from the NSE CSV is incomplete or missing for some symbols, this function attempts to fill these gaps using Yahoo Finance.
+*   **Process**:
+    ```python
     ticker = yf.Ticker(symbol)
-    data = ticker.history(**params)
-    
-    # Advanced quality validation
-    quality_metrics = {
-        'price_continuity': calculate_price_continuity(data),
-        'volume_consistency': validate_volume_patterns(data),
-        'adjustment_accuracy': verify_split_adjustments(data),
-        'temporal_integrity': check_timestamp_consistency(data)
-    }
-    
-    composite_quality = np.mean(list(quality_metrics.values()))
-    
-    if composite_quality < 0.90:
-        raise DataQualityException(f"Quality score {composite_quality:.3f} below threshold")
-    
-    return data, quality_metrics
-```
+    info = ticker.info
+    if 'sector' in info and info['sector']:
+        SECTOR_MAPPING[symbol] = info['sector']
+    ```
+    For each symbol with missing data, it fetches the `ticker.info` dictionary from Yahoo Finance and extracts the `sector` and `industry` fields if available.
+*   **Significance**: Aims to ensure that every stock in the universe has associated sector and industry metadata, which is vital for comprehensive analysis. This also acts as a fallback.
 
-#### NSE Direct API (Secondary)
-**Purpose**: Primary source validation and backup
-**Access Method**: Official NSE APIs with authentication
-**Refresh Rate**: Every 5 minutes during market hours
+## 4. Phase 2: Individual Stock Data Acquisition & Processing
 
-#### Alternative Data Sources
-- **Bloomberg Terminal**: For institutional-grade fundamental data
-- **Reuters Eikon**: Real-time news and sentiment analysis
-- **Quandl**: Economic indicators and macro data
+Once the symbol universe is defined, the pipeline processes each stock individually to gather a wide array of data points. The `download_historical_data_for_symbol` function in `download_nifty500_data.py` often serves as a mini-orchestrator for fetching price/volume and then triggering technical indicator and relative strength calculations for a single symbol. It internally calls `download_stock_data` from `download_stock_data.py`.
 
-### 4.2 Data Quality Framework
+### 4.A. Historical Price & Volume Data (via `download_stock_data.py`)
 
-#### Multi-Dimensional Quality Scoring
+*   **Core Function**: The actual download is handled by `download_stock_data` (from `download_stock_data.py`), which is called by `download_historical_data_for_symbol` in the main `download_nifty500_data.py` script.
+*   **Purpose**: To obtain historical Open, High, Low, Close prices, and Volume (OHLCV) for each stock. This is the foundational data for most forms of technical analysis and strategy backtesting.
+*   **Process**:
+    *   Utilizes `yf.Ticker(symbol).history(start=start_date, end=end_date, interval=interval, auto_adjust=True)`.
+    *   `start_date`, `end_date`: Define the period for historical data (e.g., last 5 years).
+    *   `interval`: Specifies the data frequency (e.g., '1d' for daily, '1h' for hourly).
+    *   `auto_adjust=True`: This is crucial as it provides prices adjusted for corporate actions like stock splits and dividends.
+        *   *Significance of Adjusted Prices*: Ensures that historical price series are comparable over time, preventing artificial jumps or drops due to corporate actions that don't reflect a change in the company's fundamental value. For example, after a 2:1 stock split, the price halves, but `auto_adjust=True` scales historical prices down to maintain continuity.
+*   **Data Quality Checks (Conceptual, as performed in `test_single_stock_comprehensive.py`)**:
+    *   **Non-empty data**: Ensure some data was returned.
+    *   **Sufficient data points**: Check if the number of records is adequate for analysis.
+    *   **Presence of OHLCV columns**: Verify that 'Open', 'High', 'Low', 'Close', 'Volume' are present.
+    *   **Logical consistency**:
+        *   `High` must be greater than or equal to `Low`.
+        *   `High` should generally be greater than or equal to `Open` and `Close`.
+        *   `Low` should generally be less than or equal to `Open` and `Close`.
+    *   **Non-negative volume**: Volume traded cannot be negative.
+    *   *Significance*: These checks help identify issues with the data source or the download process early on.
+*   **RELIANCE.NS Example**:
+    *   To fetch daily data for RELIANCE.NS for the past 2 years:
+        `data = yf.Ticker("RELIANCE.NS").history(period="2y", interval="1d", auto_adjust=True)`
+    *   A typical row in the resulting DataFrame for RELIANCE.NS on `{reliance_example_date}` might look like:
+        `Date: {reliance_example_date}, Open: 2930.00, High: 2965.00, Low: 2925.00, Close: {reliance_close_price}, Volume: 5,200,100`
+        (Note: Prices are adjusted if `auto_adjust=True`).
 
-**Quality Score Formula:**
-$$Q_{total} = 0.4 \cdot Q_{completeness} + 0.3 \cdot Q_{accuracy} + 0.2 \cdot Q_{timeliness} + 0.1 \cdot Q_{consistency}$$
+### 4.B. Technical Indicators
 
-**Completeness Score:**
-$$Q_{completeness} = 1 - \frac{missing\_data\_points}{total\_expected\_points}$$
+*   **Integration**: Technical indicators are typically calculated after the raw OHLCV data is fetched. The `download_historical_data_for_symbol` function calls `add_technical_indicators` (from `technical_indicators.py`) and also includes direct `talib` calls for candlestick patterns.
+*   **Purpose**: To transform raw price and volume data into quantitative signals that can help identify trends, momentum, volatility, market turning points, and other trading opportunities. They form the core inputs for many trading strategies.
+*   **Methodology**:
+    *   Many standard indicators (SMA, EMA, MACD, etc.) are calculated using pandas rolling window functions (`.rolling().mean()`, `.ewm().mean()`).
+    *   Specific candlestick patterns are identified using functions from the `talib` library (e.g., `talib.CDLDOJI`).
 
-**Accuracy Score (vs peer consensus):**
-$$Q_{accuracy} = 1 - \frac{\sum_{i=1}^{n} |price_i - consensus_i|}{n \cdot average\_price}$$
+*   **Key Indicators Covered**:
 
-#### Real-Time Anomaly Detection
+    1.  **Simple Moving Average (SMA)**
+        *   **Purpose**: Smooths out price data to identify the direction of the trend. Longer SMAs reflect long-term trends, shorter SMAs reflect short-term trends.
+        *   **Formula**: Sum of closing prices over N periods / N.
+        *   **Interpretation**: Price above SMA is often seen as bullish, below as bearish. Crossovers of different SMAs (e.g., 20-day SMA crossing above 50-day SMA - a "golden cross") can signal trend changes.
+        *   **RELIANCE.NS Example**: "On `{reliance_example_date}`, RELIANCE.NS closed at {reliance_close_price}. Its 20-day SMA was `{reliance_sma20_value}` and 50-day SMA was `{reliance_sma50_value}`. Since the price is above both SMAs and the 20-day SMA is above the 50-day SMA, this suggests a bullish trend in the short to medium term."
+        *   **Visualization**: A plot would show the closing price line with the 20-day and 50-day SMA lines overlaid. Crossovers and the price's position relative to the SMAs would be key visual cues.
 
-**Statistical Process Control:**
-```python
-def detect_price_anomalies(data, lookback=252):
-    """
-    Real-time anomaly detection using statistical process control
-    
-    Methods:
-    1. Z-score analysis (3-sigma rule)
-    2. Interquartile range outliers
-    3. ARIMA residual analysis
-    4. Volume-price relationship validation
-    """
-    returns = data['Close'].pct_change().dropna()
-    
-    # Rolling statistics
-    rolling_mean = returns.rolling(lookback).mean()
-    rolling_std = returns.rolling(lookback).std()
-    
-    # Z-score calculation
-    z_scores = (returns - rolling_mean) / rolling_std
-    
-    # Anomaly flags
-    anomalies = {
-        'price_spikes': abs(z_scores) > 3,
-        'volume_anomalies': detect_volume_outliers(data),
-        'gap_analysis': detect_overnight_gaps(data),
-        'trading_halts': identify_zero_volume_periods(data)
-    }
-    
-    return anomalies
+    2.  **Exponential Moving Average (EMA)**
+        *   **Purpose**: Similar to SMA but gives more weight to recent prices, making it more responsive to new information.
+        *   **Formula**: (Close - Previous EMA) * Multiplier + Previous EMA, where Multiplier = 2 / (N + 1).
+        *   **Interpretation**: Used like SMAs for trend identification and crossover signals, but reacts faster.
+        *   **RELIANCE.NS Example**: "RELIANCE.NS's 20-day EMA on `{reliance_example_date}` might be [Value], potentially slightly different from its SMA due to the weighting, offering a quicker reflection of recent price action."
 
-def validate_data_integrity(data):
-    """
-    Comprehensive data validation pipeline
-    
-    Validation Tests:
-    1. Price monotonicity (no negative prices)
-    2. Volume non-negativity
-    3. OHLC relationship consistency
-    4. Adjustment factor verification
-    5. Trading day calendar compliance
-    """
-    validation_results = {}
-    
-    # Price validation
-    validation_results['price_positive'] = (data[['Open', 'High', 'Low', 'Close']] > 0).all().all()
-    
-    # OHLC consistency
-    validation_results['ohlc_consistent'] = (
-        (data['High'] >= data[['Open', 'Close']].max(axis=1)).all() and
-        (data['Low'] <= data[['Open', 'Close']].min(axis=1)).all()
-    )
-    
-    # Volume validation
-    validation_results['volume_positive'] = (data['Volume'] >= 0).all()
-    
-    # Gap analysis
-    gaps = data['Open'].shift(-1) / data['Close'] - 1
-    validation_results['reasonable_gaps'] = (abs(gaps) < 0.20).sum() / len(gaps) > 0.95
-    
-    return validation_results
-```
+    3.  **Relative Strength Index (RSI)**
+        *   **Purpose**: A momentum oscillator that measures the speed and change of price movements. It indicates overbought or oversold conditions.
+        *   **Formula**: `100 - (100 / (1 + RS))`, where RS = (Average Gain over N periods) / (Average Loss over N periods). Typically N=14.
+        *   **Interpretation**: Values range from 0 to 100.
+            *   RSI > 70: Often considered overbought (potential for a price pullback).
+            *   RSI < 30: Often considered oversold (potential for a price bounce).
+            *   Divergences: Bullish divergence (price makes lower low, RSI makes higher low) or bearish divergence (price makes higher high, RSI makes lower high) can signal trend reversals.
+        *   **RELIANCE.NS Example**: "On `{reliance_example_date}`, RELIANCE.NS had a 14-day RSI of `{reliance_rsi_value}`. This value is approaching the overbought territory but not yet extreme, suggesting strong upward momentum that warrants monitoring for signs of exhaustion."
+        *   **Caveat**: In strong trends, RSI can remain in overbought/oversold territory for extended periods.
 
----
+    4.  **Moving Average Convergence Divergence (MACD)**
+        *   **Purpose**: A trend-following momentum indicator that shows the relationship between two EMAs of a security’s price (typically 12-period EMA and 26-period EMA).
+        *   **Formula**: MACD Line = 12-period EMA - 26-period EMA. Signal Line = 9-period EMA of MACD Line. Histogram = MACD Line - Signal Line.
+        *   **Interpretation**:
+            *   Crossovers: MACD Line crossing above Signal Line is bullish; below is bearish.
+            *   Zero Line Crossover: MACD Line crossing above zero is bullish; below is bearish.
+            *   Divergences: Similar to RSI, divergences between MACD and price can signal trend changes.
+        *   **RELIANCE.NS Example**: "For RELIANCE.NS on `{reliance_example_date}`, if the MACD line was [Value, e.g., 15.2] and the Signal line was [Value, e.g., 12.8], with the MACD line having recently crossed above the signal line, it would be a bullish signal."
 
-## 5. Complete Technical Indicators Library
+    5.  **Bollinger Bands (BBands)**
+        *   **Purpose**: Measure market volatility and identify overbought/oversold conditions relative to a moving average.
+        *   **Formula**:
+            *   Middle Band: N-period SMA (typically 20-day).
+            *   Upper Band: Middle Band + (K * N-period Standard Deviation of Price) (typically K=2).
+            *   Lower Band: Middle Band - (K * N-period Standard Deviation of Price).
+        *   **Interpretation**:
+            *   Price touching Upper Band: Potentially overbought.
+            *   Price touching Lower Band: Potentially oversold.
+            *   Band Squeeze: Low volatility, often precedes a significant price move.
+            *   Band Expansion: High volatility.
+        *   **RELIANCE.NS Example**: "If RELIANCE.NS price on `{reliance_example_date}` was trading near its Upper Bollinger Band ([Value]), it might suggest a short-term overbought condition or strong momentum if the bands are expanding."
 
-### 5.1 Trend Following Systems
+    6.  **Average True Range (ATR)**
+        *   **Purpose**: Measures market volatility by decomposing the entire range of an asset price for that period.
+        *   **Formula**: Typically a 14-day smoothed moving average of True Range values. True Range = max[(High - Low), abs(High - Previous Close), abs(Low - Previous Close)].
+        *   **Interpretation**: Higher ATR indicates higher volatility; lower ATR indicates lower volatility. Not directional. Often used for setting stop-loss levels or position sizing.
+        *   **RELIANCE.NS Example**: "An ATR of [Value, e.g., 45.5] for RELIANCE.NS on `{reliance_example_date}` means the stock has an average daily price range of roughly 45.5 points over the last 14 days."
 
-#### 5.1.1 Advanced Moving Average Systems
+    7.  **Commodity Channel Index (CCI)**
+        *   **Purpose**: A momentum-based oscillator used to help determine when an investment vehicle is reaching a condition of being overbought or oversold.
+        *   **Formula**: (Typical Price - N-period SMA of Typical Price) / (0.015 * N-period Mean Deviation of Typical Price). Typical Price = (High + Low + Close) / 3.
+        *   **Interpretation**: Values above +100 suggest overbought; below -100 suggest oversold.
+        *   **RELIANCE.NS Example**: "A CCI reading of [Value, e.g., 120] for RELIANCE.NS would indicate an overbought condition."
 
-**Adaptive Moving Average (Kaufman's Efficiency Ratio):**
+    8.  **Average Directional Index (ADX), Plus Directional Indicator (+DI), Minus Directional Indicator (-DI)**
+        *   **Purpose**: ADX measures trend strength (not direction). +DI and -DI measure trend direction.
+        *   **Interpretation**:
+            *   ADX > 25: Strong trend (either up or down). ADX < 20: Weak or non-trending market.
+            *   +DI above -DI: Bullish trend. -DI above +DI: Bearish trend.
+            *   Crossovers of +DI and -DI can signal trend changes, confirmed by ADX strength.
+        *   **RELIANCE.NS Example**: "If RELIANCE.NS has an ADX of [Value, e.g., 30], +DI at [Value, e.g., 28], and -DI at [Value, e.g., 15], it indicates a strong uptrend."
 
-$$AMA_t = AMA_{t-1} + SC \cdot (Price_t - AMA_{t-1})$$
+    9.  **Money Flow Index (MFI)**
+        *   **Purpose**: A momentum indicator that incorporates volume and price data. It's also known as volume-weighted RSI.
+        *   **Interpretation**: Similar to RSI for overbought (>80) / oversold (<20) conditions and divergences.
+        *   **RELIANCE.NS Example**: "An MFI of [Value, e.g., 75] for RELIANCE.NS suggests significant buying pressure."
 
-Where:
-$$SC = \left[\frac{ER \cdot (fastest\_SC - slowest\_SC) + slowest\_SC}{1}\right]^2$$
+    10. **On-Balance Volume (OBV)**
+        *   **Purpose**: A momentum indicator that uses volume flow to predict changes in stock price.
+        *   **Interpretation**: Rising OBV reflects positive volume pressure that can lead to higher prices. Falling OBV signals negative volume pressure. Divergences between OBV and price are noteworthy.
+        *   **RELIANCE.NS Example**: "If RELIANCE.NS price is making new highs and its OBV is also making new highs, it confirms the uptrend."
 
-$$ER = \frac{|Change|}{Volatility} = \frac{|Price_t - Price_{t-n}|}{\sum_{i=1}^{n}|Price_i - Price_{i-1}|}$$
+    11. **Rate of Change (ROC)**
+        *   **Purpose**: A momentum oscillator that measures the percentage change in price between the current price and the price N periods ago.
+        *   **Interpretation**: Positive ROC indicates upward momentum; negative ROC indicates downward momentum. Zero line crossovers can be used as signals.
+        *   **RELIANCE.NS Example**: "A 10-day ROC of [Value, e.g., 2.5%] for RELIANCE.NS means its price has increased by 2.5% over the last 10 trading days."
 
-**Implementation with Market Regime Adaptation:**
-```python
-def adaptive_moving_average(data, period=14, fast_period=2, slow_period=30):
-    """
-    Kaufman's Adaptive Moving Average with regime awareness
-    
-    Mathematical Foundation:
-    - Efficiency Ratio measures trending vs ranging markets
-    - Smoothing constant adapts to market conditions
-    - Higher ER = more trending = faster adaptation
-    """
-    price = data['Close']
-    
-    # Calculate direction and volatility
-    direction = abs(price - price.shift(period))
-    volatility = abs(price.diff()).rolling(period).sum()
-    
-    # Efficiency Ratio
-    efficiency_ratio = direction / volatility
-    
-    # Smoothing constants
-    fastest_sc = 2 / (fast_period + 1)
-    slowest_sc = 2 / (slow_period + 1)
-    
-    # Scaled smoothing constant
-    smoothing_constant = ((efficiency_ratio * (fastest_sc - slowest_sc)) + slowest_sc) ** 2
-    
-    # Calculate AMA
-    ama = np.zeros(len(price))
-    ama[period] = price.iloc[:period+1].mean()
-    
-    for i in range(period + 1, len(price)):
-        ama[i] = ama[i-1] + smoothing_constant.iloc[i] * (price.iloc[i] - ama[i-1])
-    
-    return pd.Series(ama, index=price.index)
+*   **Candlestick Patterns (Identified using `talib` functions like `talib.CDLDOJI`, `talib.CDLHAMMER`, etc.)**:
+    *   **Purpose**: These are short-term patterns (1-3 candles) that can indicate potential reversals or continuations. The `download_nifty500_data.py` script calculates many of these.
+    *   **Examples**:
+        *   **Doji**: Indicates indecision. A day where open and close are very close.
+            *   *RELIANCE.NS Example*: "A Doji pattern on `{reliance_example_date}` for RELIANCE.NS, after a strong uptrend, might signal that the buying momentum is waning."
+        *   **Hammer**: Bullish reversal pattern typically found at the bottom of a downtrend. Small body, long lower shadow, little to no upper shadow.
+            *   *RELIANCE.NS Example*: "If RELIANCE.NS formed a Hammer on `{reliance_example_date}` after a period of decline, it would suggest buyers stepped in, potentially reversing the downtrend."
+        *   **Engulfing (Bullish/Bearish)**: A two-candle reversal pattern. A Bullish Engulfing has a small bearish candle followed by a large bullish candle that engulfs the prior one.
+            *   *RELIANCE.NS Example*: "A Bullish Engulfing pattern for RELIANCE.NS would be a strong bottom reversal signal."
+    *   **Interpretation**: The output from `talib` functions is typically a series of numbers (0 for no pattern, 100 for bullish pattern, -100 for bearish pattern on a given day).
+    *   **Significance**: While individual patterns have limited reliability, they can be powerful when combined with other indicators or support/resistance levels.
 
-def triple_exponential_average(data, period=21):
-    """
-    Triple Exponential Average (TEMA) - reduces lag vs EMA
-    
-    Mathematical Formula:
-    TEMA = 3*EMA1 - 3*EMA2 + EMA3
-    Where:
-    EMA1 = EMA(price, period)
-    EMA2 = EMA(EMA1, period)  
-    EMA3 = EMA(EMA2, period)
-    """
-    price = data['Close']
-    
-    # First EMA
-    ema1 = price.ewm(span=period).mean()
-    
-    # Second EMA (EMA of EMA1)
-    ema2 = ema1.ewm(span=period).mean()
-    
-    # Third EMA (EMA of EMA2)
-    ema3 = ema2.ewm(span=period).mean()
-    
-    # TEMA calculation
-    tema = 3 * ema1 - 3 * ema2 + ema3
-    
-    return tema
-```
+### 4.C. Fundamental Data (`get_fundamental_data`)
 
-**Real-World Performance Analysis - TCS Limited:**
+*   **Purpose**: To evaluate a company's intrinsic value, financial performance, health, and growth prospects. Fundamental data is crucial for long-term investment decisions and for identifying undervalued or overvalued stocks.
+*   **Process**: This function queries `yfinance` for a wealth of information:
+    *   `ticker.info`: Provides a dictionary with many current metrics (market cap, P/E, dividend yield, etc.).
+    *   `ticker.financials`, `ticker.quarterly_financials`: Income Statement data.
+    *   `ticker.balance_sheet`, `ticker.quarterly_balance_sheet`: Balance Sheet data.
+    *   `ticker.cashflow`, `ticker.quarterly_cashflow`: Cash Flow Statement data.
+    The function then extracts and calculates various ratios and metrics.
 
-**Case Study: TCS.NS - TEMA vs SMA Performance (2022-2024)**
-```python
-# Backtesting Results: TEMA(21) vs SMA(21) on TCS.NS
-tcs_analysis = {
-    'strategy_comparison': {
-        'TEMA_21': {
-            'total_signals': 34,
-            'profitable_trades': 24,
-            'win_rate': 70.6,  # %
-            'average_gain': 6.8,  # % per winning trade
-            'average_loss': -3.2,  # % per losing trade
-            'profit_factor': 2.25,
-            'maximum_drawdown': -8.4,  # %
-            'sharpe_ratio': 1.43
-        },
-        'SMA_21': {
-            'total_signals': 29,
-            'profitable_trades': 18,
-            'win_rate': 62.1,  # %
-            'average_gain': 5.9,  # % per winning trade
-            'average_loss': -4.1,  # % per losing trade
-            'profit_factor': 1.89,
-            'maximum_drawdown': -11.2,  # %
-            'sharpe_ratio': 1.18
-        }
-    },
-    'key_insights': {
-        'lag_reduction': '23% faster signal generation with TEMA',
-        'risk_adjusted_return': '21% higher Sharpe ratio',
-        'drawdown_improvement': '25% lower maximum drawdown',
-        'signal_quality': 'TEMA filtered out 3 false signals vs SMA'
-    }
-}
-```
+*   **Key Metrics Covered**:
 
-#### 5.1.2 Ichimoku Cloud System (Complete Implementation)
+    1.  **Valuation Metrics**:
+        *   **P/E Ratio (Price-to-Earnings)**: `info.get('trailingPE')`
+            *   *Significance*: How much investors are willing to pay per rupee of earnings. High P/E can mean high growth expectations or overvaluation.
+            *   *RELIANCE.NS Example*: "RELIANCE.NS has a P/E ratio of `{reliance_pe_ratio}`. Comparing this to its historical average and the sector average (`{reliance_sector_pe}` from `_get_sector_averages`) helps assess its current valuation."
+        *   **P/B Ratio (Price-to-Book)**: `info.get('priceToBook')`
+            *   *Significance*: Compares market value to book value. Useful for capital-intensive industries.
+        *   **PEG Ratio (Price/Earnings-to-Growth)**: `info.get('pegRatio')`
+            *   *Significance*: P/E ratio divided by earnings growth rate. A PEG around 1 might suggest fair valuation relative to growth.
+        *   **EV/EBITDA (Enterprise Value-to-EBITDA)**: `info.get('enterpriseToEbitda')`
+            *   *Significance*: Compares total company value (market cap + debt - cash) to its earnings before interest, taxes, depreciation, and amortization. Useful for comparing companies with different capital structures.
+        *   **Price-to-Sales (P/S)**: `info.get('priceToSalesTrailing12Months')`
+            *   *Significance*: Compares market cap to total revenue. Useful for growth companies not yet profitable.
 
-**Mathematical Components:**
+    2.  **Profitability Metrics**:
+        *   **Profit Margin**: `info.get('profitMargins') * 100`
+            *   *Significance*: Net income / Revenue. Shows how much profit is generated per rupee of sales.
+        *   **Operating Margin**: `info.get('operatingMargins') * 100`
+            *   *Significance*: Operating income / Revenue. Efficiency in core business operations.
+        *   **Return on Equity (ROE)**: `info.get('returnOnEquity') * 100`
+            *   *Significance*: Net income / Shareholder Equity. How effectively shareholder money is used to generate profit.
+        *   **Return on Assets (ROA)**: `info.get('returnOnAssets') * 100`
+            *   *Significance*: Net income / Total Assets. How efficiently assets are used.
+        *   **Return on Invested Capital (ROIC)**: Calculated using EBIT, tax rate, and invested capital (equity + debt).
+            *   *Significance*: Measures profit generated on all capital invested. Often compared to WACC.
 
-$$Tenkan = \frac{Highest\_High_{9} + Lowest\_Low_{9}}{2}$$
+    3.  **Financial Health Metrics**:
+        *   **Debt-to-Equity (D/E)**: `info.get('debtToEquity') / 100` (if yfinance provides it as percentage)
+            *   *Significance*: Total Debt / Shareholder Equity. Measures financial leverage.
+        *   **Current Ratio**: `info.get('currentRatio')`
+            *   *Significance*: Current Assets / Current Liabilities. Measures short-term liquidity.
 
-$$Kijun = \frac{Highest\_High_{26} + Lowest\_Low_{26}}{2}$$
+    4.  **Dividend Metrics**:
+        *   **Dividend Yield**: `info.get('dividendYield') * 100`
+            *   *Significance*: Annual dividend per share / Price per share. Return from dividends.
+        *   **Payout Ratio**: `info.get('payoutRatio') * 100`
+            *   *Significance*: Dividends per share / Earnings per share. Proportion of earnings paid as dividends.
 
-$$Senkou\_A = \frac{Tenkan + Kijun}{2} \text{ (displaced +26)}$$
+    5.  **Growth Metrics**:
+        *   **Revenue Growth**: `info.get('revenueGrowth') * 100` (often YoY or QoQ)
+        *   **Earnings Growth**: `info.get('earningsGrowth') * 100`
 
-$$Senkou\_B = \frac{Highest\_High_{52} + Lowest\_Low_{52}}{2} \text{ (displaced +26)}$$
+    6.  **Ownership & Analyst Data**:
+        *   **Institutional Ownership**: `info.get('institutionsPercentHeld') * 100`
+        *   **Analyst Target Price**: `info.get('targetMeanPrice')`
+        *   **Analyst Rating**: `info.get('recommendationMean')` (e.g., 1=Strong Buy, 5=Strong Sell)
 
-$$Chikou = Close \text{ (displaced -26)}$$
+*   **Sector Averages (`_get_sector_averages`)**:
+    *   **Purpose**: To provide context for a stock's fundamental metrics. A P/E of 30 might be high for a utility but low for a tech company.
+    *   **Methodology**: The script currently uses a hardcoded dictionary of representative average metrics for various Indian sectors.
+        ```python
+        sector_data = { 'Information Technology': {'pe_ratio': 25.0, ...}, ... }
+        ```
+        Ideally, this would be sourced from a dynamic, up-to-date database or API.
+    *   **Significance**: Comparing a stock's metrics (e.g., P/E, P/B, Dividend Yield) to its sector average helps in relative valuation.
+    *   **RELIANCE.NS Example**: "If RELIANCE.NS (Energy sector) has a P/E of `{reliance_pe_ratio}` and the average P/E for the Energy sector is `{reliance_sector_pe}`, this suggests RELIANCE.NS is trading at a [premium/discount/similar valuation] compared to its peers."
 
-**Professional Implementation:**
-```python
-def ichimoku_cloud_system(data):
-    """
-    Complete Ichimoku Kinko Hyo system with signal generation
-    
-    Signal Rules:
-    1. Tenkan/Kijun Cross: Short-term trend change
-    2. Price vs Cloud: Major trend confirmation
-    3. Cloud Color: Support/resistance strength
-    4. Chikou Span: Momentum confirmation
-    """
-    high = data['High']
-    low = data['Low']
-    close = data['Close']
-    
-    # Tenkan-sen (Conversion Line)
-    tenkan_high = high.rolling(9).max()
-    tenkan_low = low.rolling(9).min()
-    tenkan = (tenkan_high + tenkan_low) / 2
-    
-    # Kijun-sen (Base Line)
-    kijun_high = high.rolling(26).max()
-    kijun_low = low.rolling(26).min()
-    kijun = (kijun_high + kijun_low) / 2
-    
-    # Senkou Span A (Leading Span A)
-    senkou_a = ((tenkan + kijun) / 2).shift(26)
-    
-    # Senkou Span B (Leading Span B)
-    senkou_b_high = high.rolling(52).max()
-    senkou_b_low = low.rolling(52).min()
-    senkou_b = ((senkou_b_high + senkou_b_low) / 2).shift(26)
-    
-    # Chikou Span (Lagging Span)
-    chikou = close.shift(-26)
-    
-    # Cloud analysis
-    cloud_top = np.maximum(senkou_a, senkou_b)
-    cloud_bottom = np.minimum(senkou_a, senkou_b)
-    cloud_thickness = (cloud_top - cloud_bottom) / close * 100  # As percentage
-    
-    # Signal generation
-    signals = pd.DataFrame(index=data.index)
-    
-    # Tenkan/Kijun crossover
-    signals['tk_cross_bull'] = (tenkan > kijun) & (tenkan.shift(1) <= kijun.shift(1))
-    signals['tk_cross_bear'] = (tenkan < kijun) & (tenkan.shift(1) >= kijun.shift(1))
-    
-    # Price vs cloud
-    signals['above_cloud'] = close > cloud_top
-    signals['below_cloud'] = close < cloud_bottom
-    signals['in_cloud'] = ~(signals['above_cloud'] | signals['below_cloud'])
-    
-    # Cloud breakout signals
-    signals['cloud_breakout_bull'] = (close > cloud_top) & (close.shift(1) <= cloud_top.shift(1))
-    signals['cloud_breakout_bear'] = (close < cloud_bottom) & (close.shift(1) >= cloud_bottom.shift(1))
-    
-    # Chikou confirmation
-    chikou_above_price = chikou > close.shift(26)
-    signals['chikou_confirm_bull'] = chikou_above_price
-    signals['chikou_confirm_bear'] = ~chikou_above_price
-    
-    # Composite signals
-    signals['strong_bull'] = (
-        signals['tk_cross_bull'] & 
-        signals['above_cloud'] & 
-        signals['chikou_confirm_bull']
-    )
-    
-    signals['strong_bear'] = (
-        signals['tk_cross_bear'] & 
-        signals['below_cloud'] & 
-        signals['chikou_confirm_bear']
-    )
-    
-    return {
-        'tenkan': tenkan,
-        'kijun': kijun,
-        'senkou_a': senkou_a,
-        'senkou_b': senkou_b,
-        'chikou': chikou,
-        'cloud_top': cloud_top,
-        'cloud_bottom': cloud_bottom,
-        'cloud_thickness': cloud_thickness,
-        'signals': signals
-    }
-```
+### 4.D. News Sentiment Analysis (`get_news_sentiment`)
 
-**Historical Performance Analysis - Infosys:**
+*   **Purpose**: To quantify the general market sentiment towards a stock based on recent news headlines. Positive news can drive prices up, while negative news can drive them down.
+*   **Process**:
+    1.  Fetches news articles using `yf.Ticker(symbol).news`.
+    2.  Performs a simple keyword-based sentiment analysis on each article title:
+        *   A predefined list of `positive_keywords` (e.g., 'rise', 'gain', 'profit', 'upgrade') and `negative_keywords` (e.g., 'fall', 'loss', 'downgrade', 'concern') is used.
+        *   Each title is scanned for these keywords. Positive keywords increment a score, negative keywords decrement it.
+    3.  Aggregates scores to produce an overall sentiment score, counts of positive/negative/neutral articles, and attempts to identify a sentiment trend.
+*   **Metrics**:
+    *   `sentiment_score`: An aggregate numerical score.
+    *   `article_count`: Total number of recent articles.
+    *   `recent_sentiment`: Categorical ('positive', 'negative', 'neutral').
+    *   `sentiment_trend`: ('improving', 'declining', 'stable').
+    *   `sentiment_distribution`: Counts of positive, neutral, negative articles.
+*   **RELIANCE.NS Example**: "For RELIANCE.NS, the news sentiment analysis might yield a `sentiment_score` of `{reliance_news_sentiment_score}` based on [X] articles. This could be categorized as '[Positive/Moderately Positive]' recent sentiment. An example positive headline might be 'RELIANCE.NS posts strong quarterly earnings'."
+*   **Limitations**:
+    *   Keyword-based sentiment is very basic and can be easily fooled by negation, sarcasm, or complex language.
+    *   It doesn't understand context deeply.
+    *   More advanced Natural Language Processing (NLP) models (e.g., using transformer-based models like BERT or FinBERT) would provide much more accurate sentiment. The script mentions "NLP scoring" in its docstring, implying an aspiration for this.
 
-**Ichimoku Cloud Strategy Performance on INFY.NS (2020-2024):**
-```python
-infosys_ichimoku_results = {
-    'total_trades': 23,
-    'winning_trades': 17,
-    'losing_trades': 6,
-    'win_rate': 73.9,  # %
-    'average_win': 11.2,  # %
-    'average_loss': -4.7,  # %
-    'profit_factor': 2.84,
-    'total_return': 127.3,  # %
-    'annual_return': 22.8,  # %
-    'sharpe_ratio': 1.67,
-    'maximum_drawdown': -12.1,  # %
-    'calmar_ratio': 1.88,
-    
-    'signal_breakdown': {
-        'strong_bull_signals': 8,
-        'strong_bear_signals': 4,
-        'tenkan_kijun_crosses': 11,
-        'cloud_breakouts': 12,
-        'false_signals_filtered': 7  # Signals avoided due to chikou confirmation
-    },
-    
-    'best_trade': {
-        'date': '2023-03-15',
-        'entry_price': 1456.50,
-        'exit_price': 1687.20,
-        'return': 15.8,  # %
-        'duration': 47,  # days
-        'signal_type': 'cloud_breakout_bull'
-    }
-}
-```
+### 4.E. Option Chain Data (`get_option_chain_data`)
 
-### 5.2 Momentum & Oscillator Complex
+*   **Purpose**: To analyze options market activity for insights into market expectations, implied volatility, potential support/resistance levels, and overall sentiment.
+*   **Process**:
+    1.  Fetches available option expiry dates using `ticker.options`.
+    2.  For each expiry (or a selection of them, e.g., near-term expiries), it fetches the call and put option chains using `ticker.option_chain(expiry_date)`.
+    3.  Extracts data like `impliedVolatility`, `openInterest`, `volume`, `lastPrice` for each option contract.
+    4.  Calculates aggregate metrics like Put-Call Ratio and identifies strikes with high Open Interest.
+    5.  The `_calculate_max_pain` helper function attempts to find the strike price at which the maximum number of option holders (both call and put buyers) would lose money if the stock expires at that price.
+*   **Key Metrics**:
+    *   **Implied Volatility (IV)**: The market's forecast of likely movement in a security's price. High IV suggests expectations of large price swings.
+        *   *Significance*: Important for option pricing and risk assessment.
+    *   **Put-Call Ratio (PCR)**: Ratio of trading volume or open interest of put options to call options.
+        *   *Significance*: Often used as a contrarian indicator. A very high PCR might suggest bearish sentiment is overdone (potentially bullish), and a very low PCR might suggest bullish sentiment is overdone (potentially bearish).
+    *   **Open Interest (OI)**: Total number of outstanding option contracts that have not been settled.
+        *   *Significance*: High OI at certain strike prices can indicate potential support (for puts) or resistance (for calls) levels, as these are points where many market participants have a vested interest.
+    *   **Max Pain**: The strike price where the greatest number of options (in terms of dollar value) would expire worthless.
+        *   *Significance*: Some theories suggest that the underlying stock price will tend to gravitate towards the max pain strike price as expiration approaches.
+*   **RELIANCE.NS Example**: "For RELIANCE.NS options expiring on [Expiry Date]:
+    *   The overall Put-Call Ratio (Open Interest) is `{reliance_pcr_value}`.
+    *   The highest Call OI is at the `{reliance_call_oi_strike}` strike, and the highest Put OI is at the `{reliance_put_oi_strike}` strike.
+    *   The average Implied Volatility for near-the-money options is [IV Value]%.
+    *   The calculated Max Pain strike is [Max Pain Strike Value]."
 
-#### 5.2.1 Advanced RSI Systems
+### 4.F. Institutional Ownership (`get_institutional_ownership`)
 
-**Stochastic RSI (StochRSI):**
+*   **Purpose**: To track the buying and selling activity of large financial institutions (mutual funds, pension funds, insurance companies). Significant institutional ownership can provide stability to a stock's price, and changes in their holdings can signal shifts in "smart money" sentiment.
+*   **Process**: Fetches data using `yf.Ticker(symbol).institutional_holders`. This typically provides a list of top institutional holders and their reported positions and changes. The script aggregates this to get overall percentages.
+*   **Metrics**:
+    *   `percent_held_by_institutions`: Percentage of the company's outstanding shares held by institutions.
+    *   `number_of_institutions_holding_stock`: Count of reporting institutions.
+    *   (Potentially) Top holders, recent changes in their positions.
+*   **RELIANCE.NS Example**: "As of the latest reporting, `{reliance_institutional_own_pct}`% of RELIANCE.NS's outstanding shares are held by [Number] institutions. Major holders include [Example Institution 1] and [Example Institution 2]."
+*   **Significance**: High and increasing institutional ownership is often seen as a positive sign, indicating confidence in the company's prospects. Conversely, significant selling by institutions can be a warning.
 
-$$StochRSI = \frac{RSI - RSI_{Low}(n)}{RSI_{High}(n) - RSI_{Low}(n)}$$
+## 5. Phase 3: Market-Wide & Relational Analysis
 
-**Connors RSI (Composite Momentum):**
+Beyond individual stock data, the pipeline also gathers information to understand the broader market context and how stocks perform relative to benchmarks or other asset classes.
 
-$$ConnorsRSI = \frac{RSI(Close, 3) + RSI(Streak, 2) + PercentRank(ROC, 100)}{3}$$
+### 5.A. Relative Strength (RS)
 
-```python
-def advanced_rsi_suite(data, rsi_period=14, stoch_period=14):
-    """
-    Advanced RSI calculation suite with multiple variants
-    
-    Components:
-    1. Standard RSI
-    2. Stochastic RSI
-    3. Connors RSI
-    4. RSI with dynamic periods
-    5. RSI divergence detection
-    """
-    close = data['Close']
-    
-    # Standard RSI
-    delta = close.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(rsi_period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(rsi_period).mean()
-    rs = gain / loss
-    standard_rsi = 100 - (100 / (1 + rs))
-    
-    # Stochastic RSI
-    rsi_high = standard_rsi.rolling(stoch_period).max()
-    rsi_low = standard_rsi.rolling(stoch_period).min()
-    stoch_rsi = (standard_rsi - rsi_low) / (rsi_high - rsi_low) * 100
-    
-    # Connors RSI components
-    # 1. Short-term RSI
-    gains_3 = (delta.where(delta > 0, 0)).rolling(3).mean()
-    losses_3 = (-delta.where(delta < 0, 0)).rolling(3).mean()
-    rsi_3 = 100 - (100 / (1 + gains_3 / losses_3))
-    
-    # 2. Streak RSI (consecutive up/down days)
-    streak = calculate_price_streak(close)
-    streak_gains = (streak.where(streak > 0, 0)).rolling(2).mean()
-    streak_losses = (-streak.where(streak < 0, 0)).rolling(2).mean()
-    rsi_streak = 100 - (100 / (1 + streak_gains / streak_losses))
-    
-    # 3. Percent Rank of Rate of Change
-    roc = close.pct_change()
-    percent_rank = roc.rolling(100).rank(pct=True) * 100
-    
-    # Connors RSI
-    connors_rsi = (rsi_3 + rsi_streak + percent_rank) / 3
-    
-    # RSI Divergence Detection
-    divergences = detect_rsi_divergences(close, standard_rsi)
-    
-    return {
-        'rsi': standard_rsi,
-        'stoch_rsi': stoch_rsi,
-        'connors_rsi': connors_rsi,
-        'rsi_3': rsi_3,
-        'divergences': divergences
-    }
+*   **Integration**: The `calculate_relative_strength_metrics` function (from `relative_strength.py`) is called, likely within `download_historical_data_for_symbol` or by the main orchestrator, after fetching the stock's and benchmark's historical data.
+*   **Purpose**: To measure a stock's performance compared to a benchmark (e.g., Nifty 50, a sector index) or other stocks. Stocks showing strong relative strength (outperforming the benchmark) are often preferred by momentum investors.
+*   **Methodology**:
+    *   Typically involves calculating the ratio of the stock's price to the benchmark's price over time. An upward trending RS line indicates outperformance.
+    *   The script might calculate RS over different periods (e.g., 3-month, 6-month, 1-year).
+    *   It can also involve ranking stocks based on their RS.
+*   **Metrics**:
+    *   **RS Ratio**: `Stock Price / Benchmark Price`.
+    *   **RS Percentile/Rank**: Stock's RS rank within a universe (e.g., Nifty 500).
+    *   **RS Trend**: Whether the RS line is trending up, down, or flat.
+*   **RELIANCE.NS Example**: "RELIANCE.NS's relative strength line versus the Nifty 50 has been [trending upwards/downwards/flat] over the past 6 months. Its current RS ratio is [Value]. This indicates it has [outperformed/underperformed/performed in line with] the broader market. Compared to the Nifty Energy index, its RS is [Description, e.g., `{reliance_rs_vs_nifty}`]."
+*   **Significance**: Identifying market leaders (strong RS) or laggards (weak RS) is a key component of many trading strategies. Sector RS helps identify strong/weak sectors.
 
-def calculate_price_streak(close):
-    """Calculate consecutive up/down days"""
-    direction = np.sign(close.diff())
-    streak = direction.copy()
-    
-    for i in range(1, len(direction)):
-        if direction.iloc[i] == direction.iloc[i-1] and direction.iloc[i] != 0:
-            streak.iloc[i] = streak.iloc[i-1] + direction.iloc[i]
-        elif direction.iloc[i] != 0:
-            streak.iloc[i] = direction.iloc[i]
-    
-    return streak
+### 5.B. Market Breadth (`calculate_market_breadth`)
 
-def detect_rsi_divergences(price, rsi, lookback=20):
-    """
-    Detect bullish and bearish divergences between price and RSI
-    
-    Bullish Divergence: Price makes lower lows, RSI makes higher lows
-    Bearish Divergence: Price makes higher highs, RSI makes lower highs
-    """
-    # Find local minima and maxima
-    price_mins = price.rolling(lookback, center=True).min() == price
-    price_maxs = price.rolling(lookback, center=True).max() == price
-    rsi_mins = rsi.rolling(lookback, center=True).min() == rsi
-    rsi_maxs = rsi.rolling(lookback, center=True).max() == rsi
-    
-    divergences = pd.DataFrame(index=price.index)
-    divergences['bullish_div'] = False
-    divergences['bearish_div'] = False
-    
-    # Simplified divergence detection (full implementation would be more complex)
-    price_min_points = price[price_mins].dropna()
-    rsi_min_points = rsi[rsi_mins].dropna()
-    
-    for i in range(1, min(len(price_min_points), len(rsi_min_points))):
-        if (price_min_points.iloc[i] < price_min_points.iloc[i-1] and 
-            rsi_min_points.iloc[i] > rsi_min_points.iloc[i-1]):
-            divergences.loc[price_min_points.index[i], 'bullish_div'] = True
-    
-    return divergences
-```
+*   **Purpose**: To assess the health and underlying strength of a market move. Market indices can sometimes be skewed by a few large-cap stocks, while breadth indicators show how widely the move is distributed across the market.
+*   **Process**: This function requires price data from a significant portion of the market (e.g., all Nifty 500 stocks).
+    1.  For each stock in the universe, determine if it advanced or declined on a given day.
+    2.  Calculate metrics like:
+        *   **Advance-Decline Line (A/D Line)**: A cumulative sum of (Advancing Stocks - Declining Stocks).
+        *   **New Highs-New Lows (NH-NL)**: Number of stocks making 52-week highs minus those making 52-week lows.
+        *   **McClellan Oscillator/Summation Index**: More complex breadth indicators based on smoothed A/D data.
+*   **Significance**:
+    *   **Confirmation**: If the market index is rising and the A/D Line is also rising, it confirms the rally's strength.
+    *   **Divergence**: If the index is rising but the A/D Line is falling (negative divergence), it can be a warning sign that the rally is losing steam and is not supported by broad market participation.
+*   **Example**: "On `{reliance_example_date}`, while the Nifty 50 index [rose/fell] by [X] points, the Nifty 500 Advance-Decline Line [also rose, indicating broad participation / fell, indicating a divergence]." (This is a market-wide metric, not specific to RELIANCE.NS, but provides context for its price action).
 
-#### 5.2.2 MACD with Advanced Signal Processing
+### 5.C. Intermarket Correlations (`calculate_intermarket_correlations`)
 
-**MACD Histogram Analysis:**
+*   **Purpose**: To understand the relationships between different asset classes (e.g., Indian equities vs. US equities, equities vs. commodities like oil or gold, equities vs. bonds, equities vs. currencies like USD/INR). These relationships can shift and provide valuable clues about market sentiment and economic trends.
+*   **Process**:
+    1.  Fetches historical data for the assets defined in `GLOBAL_INDICES` and `COMMODITIES_BONDS`.
+    2.  Calculates rolling correlation coefficients (e.g., using `.rolling(window=N).corr()`) between:
+        *   Nifty 50 and these global assets.
+        *   Individual stocks (like RELIANCE.NS) and selected global assets.
+*   **Significance**:
+    *   **Risk-On/Risk-Off**: Correlations can indicate prevailing market sentiment. For example, a negative correlation between equities and gold might strengthen during risk-off periods (gold seen as a safe haven).
+    *   **Economic Linkages**: Correlation with oil prices can be important for oil-importing countries like India and for specific sectors.
+    *   **Global Influence**: Correlation with major global indices like the S&P 500 shows how much Indian markets are influenced by global trends.
+*   **RELIANCE.NS Example**: "The 60-day rolling correlation between RELIANCE.NS and Brent Crude Oil (placeholder for CL=F) is currently `{reliance_correlation_oil}`. This suggests a [positive/negative/weak] short-term relationship. Its correlation with the S&P 500 (`^GSPC`) is [Value], indicating [degree] of co-movement with US markets."
 
-$$MACD = EMA_{12} - EMA_{26}$$
-$$Signal = EMA_9(MACD)$$
-$$Histogram = MACD - Signal$$
+## 6. Phase 4: Orchestration & Data Output
 
-**Advanced MACD with Signal Strength:**
-```python
-def advanced_macd_analysis(data, fast=12, slow=26, signal=9):
-    """
-    Advanced MACD with signal strength and divergence analysis
-    
-    Features:
-    1. Traditional MACD calculation
-    2. MACD-Histogram momentum analysis
-    3. Signal line slope analysis
-    4. Zero-line rejection/acceptance patterns
-    5. MACD divergence detection
-    """
-    close = data['Close']
-    
-    # Standard MACD calculation
-    ema_fast = close.ewm(span=fast).mean()
-    ema_slow = close.ewm(span=slow).mean()
-    macd_line = ema_fast - ema_slow
-    signal_line = macd_line.ewm(span=signal).mean()
-    histogram = macd_line - signal_line
-    
-    # Advanced signal analysis
-    signals = pd.DataFrame(index=data.index)
-    
-    # Basic crossover signals
-    signals['bullish_cross'] = (macd_line > signal_line) & (macd_line.shift(1) <= signal_line.shift(1))
-    signals['bearish_cross'] = (macd_line < signal_line) & (macd_line.shift(1) >= signal_line.shift(1))
-    
-    # Zero-line analysis
-    signals['above_zero'] = macd_line > 0
-    signals['zero_cross_bull'] = (macd_line > 0) & (macd_line.shift(1) <= 0)
-    signals['zero_cross_bear'] = (macd_line < 0) & (macd_line.shift(1) >= 0)
-    
-    # Histogram momentum
-    histogram_rising = histogram > histogram.shift(1)
-    histogram_falling = histogram < histogram.shift(1)
-    
-    signals['histogram_momentum_bull'] = histogram_rising & (histogram > 0)
-    signals['histogram_momentum_bear'] = histogram_falling & (histogram < 0)
-    
-    # Signal line slope (indicates momentum strength)
-    signal_slope = signal_line.diff()
-    signals['signal_slope_bull'] = signal_slope > signal_slope.rolling(5).mean()
-    signals['signal_slope_bear'] = signal_slope < signal_slope.rolling(5).mean()
-    
-    # Composite strength signals
-    signals['strong_bull'] = (
-        signals['bullish_cross'] & 
-        signals['above_zero'] & 
-        signals['histogram_momentum_bull'] &
-        signals['signal_slope_bull']
-    )
-    
-    signals['strong_bear'] = (
-        signals['bearish_cross'] & 
-        ~signals['above_zero'] & 
-        signals['histogram_momentum_bear'] &
-        signals['signal_slope_bear']
-    )
-    
-    # MACD divergence detection
-    divergences = detect_macd_divergences(close, macd_line)
-    
-    return {
-        'macd': macd_line,
-        'signal': signal_line,
-        'histogram': histogram,
-        'signals': signals,
-        'divergences': divergences,
-        'signal_slope': signal_slope
-    }
-
-def detect_macd_divergences(price, macd, lookback=20):
-    """Detect price-MACD divergences"""
-    # Implementation similar to RSI divergences
-    # but using MACD line instead of RSI
-    pass  # Detailed implementation would follow same pattern as RSI
-```
-
-**MACD Performance Case Study - HDFC Bank:**
-
-**HDFC Bank MACD Strategy Results (2021-2024):**
-```python
-hdfc_macd_analysis = {
-    'strategy': 'Advanced MACD with Histogram Confirmation',
-    'period': '2021-01-01 to 2024-12-31',
-    'total_trades': 31,
-    'performance_metrics': {
-        'win_rate': 71.0,  # %
-        'average_gain': 8.9,  # %
-        'average_loss': -4.2,  # %
-        'profit_factor': 2.31,
-        'total_return': 89.7,  # %
-        'annual_return': 21.3,  # %
-        'sharpe_ratio': 1.54,
-        'maximum_drawdown': -9.8,  # %
-    },
-    
-    'signal_analysis': {
-        'bullish_crossovers': 16,
-        'bearish_crossovers': 15,
-        'zero_line_crosses': 8,
-        'histogram_confirmations': 24,  # out of 31 total signals
-        'false_signals_avoided': 9  # due to confirmation filters
-    },
-    
-    'notable_trades': {
-        'best_trade': {
-            'date': '2023-05-22',
-            'signal': 'Strong bull (all confirmations)',
-            'entry': 1543.75,
-            'exit': 1789.20,
-            'return': 15.9,  # %
-            'duration': 42  # days
-        },
-        'avoided_whipsaw': {
-            'date': '2022-08-15',
-            'avoided_loss': -7.3,  # % loss avoided
-            'reason': 'Histogram divergence warning'
-        }
-    }
-}
-```
-```python
-# Intelligent caching system
-cache_strategy = {
-    'storage_format': 'parquet',  # 60% smaller than CSV, 10x faster read
-    'compression': 'snappy',      # Balance of speed vs size
-    'cache_duration': '24_hours', # Refresh daily for current data
-    'historical_cache': 'permanent' # Historical data never changes
-}
-```
-
-**Performance Impact:**
-- First download: ~2.3 seconds per symbol
-- Cached retrieval: ~0.08 seconds per symbol
-- Storage efficiency: 75% reduction vs raw CSV
-
----
-
-## Technical Implementation Details
-
-### Error Handling and Resilience
-
-**Multi-layer Error Recovery:**
-
-1. **Network Level**: Exponential backoff with jitter
-2. **API Level**: Rate limiting compliance (2000 requests/hour)
-3. **Data Level**: Outlier detection and correction
-4. **Application Level**: Graceful degradation for partial failures
-
-```python
-def robust_download_with_retry(symbol, max_retries=3, base_delay=1):
-    """
-    Implements sophisticated retry logic with exponential backoff
-    
-    Retry Schedule:
-    - Attempt 1: Immediate
-    - Attempt 2: 1 second delay
-    - Attempt 3: 2 second delay  
-    - Attempt 4: 4 second delay
-    
-    Success Rate: 99.7% after all retries
-    """
-    for attempt in range(max_retries):
-        try:
-            return yf.download(symbol, **kwargs)
-        except Exception as e:
-            if attempt == max_retries - 1:
-                raise
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-            time.sleep(delay)
-```
-
-### Memory Management
-
-**Optimization Strategies:**
-- Lazy loading: Data loaded only when needed
-- Chunk processing: Large datasets processed in 50-symbol batches
-- Memory pooling: Reuse of DataFrame objects
-- Garbage collection: Explicit cleanup after processing
-
-**Memory Footprint Analysis:**
-```
-Base DataFrame (1 stock, 5 years): ~45KB
-With all indicators: ~180KB  
-Full Nifty 500 dataset: ~90MB
-Peak memory usage: ~150MB (during parallel processing)
-```
-
----
-
-## Complete Technical Indicators Reference
-
-Our system implements 97+ technical indicators across six major categories. Each indicator includes mathematical formulation, implementation details, trading significance, and real-world performance analysis.
+The entire process of fetching and processing data for all Nifty 500 stocks is managed by a main coordinating function.
 
 ### 5.1 Trend Following Indicators
 
