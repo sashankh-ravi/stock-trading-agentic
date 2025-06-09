@@ -93,17 +93,17 @@ This configures application-wide logging to output messages with a timestamp, lo
 
 - **Global Market Definitions**:
 
-- `INDIAN_SECTOR_INDICES`: A dictionary mapping Yahoo Finance tickers for Indian sector indices (e.g., `^CNXBANK` for Nifty Bank) to their names.
+  - `INDIAN_SECTOR_INDICES`: A dictionary mapping Yahoo Finance tickers for Indian sector indices (e.g., `^CNXBANK` for Nifty Bank) to their names.
 
-- *Purpose*: Used for sector-specific relative strength analysis and benchmarking.
+    *Purpose*: Used for sector-specific relative strength analysis and benchmarking.
 
-- `GLOBAL_INDICES`: Includes major global stock market indices (e.g., S&P 500 `^GSPC`, FTSE 100 `^FTSE`).
+  - `GLOBAL_INDICES`: Includes major global stock market indices (e.g., S&P 500 `^GSPC`, FTSE 100 `^FTSE`).
 
-- *Purpose*: Essential for intermarket correlation analysis to understand how Indian markets are influenced by or move with global trends.
+    *Purpose*: Essential for intermarket correlation analysis to understand how Indian markets are influenced by or move with global trends.
 
-- `COMMODITIES_BONDS`: Lists tickers for key commodities (e.g., Gold `GC=F`, Crude Oil `CL=F`) and bond yields (e.g., US 10-Year Treasury `^TNX`).
+  - `COMMODITIES_BONDS`: Lists tickers for key commodities (e.g., Gold `GC=F`, Crude Oil `CL=F`) and bond yields (e.g., US 10-Year Treasury `^TNX`).
 
-- *Purpose*: Also for intermarket analysis, as these assets can significantly impact equity markets and reflect economic conditions. For example, rising oil prices can affect inflation and specific sectors.
+    *Purpose*: Also for intermarket analysis, as these assets can significantly impact equity markets and reflect economic conditions. For example, rising oil prices can affect inflation and specific sectors.
 
 ## 3. Phase 1: Symbol Universe & Metadata Acquisition
 
@@ -115,42 +115,41 @@ Before any stock-specific data can be downloaded, the pipeline must first identi
 
 - **Process**:
 
-1. **Caching**:
+1. **Caching**: The function first checks for a local cache file (`data/nifty500_symbols.json`). If the cached list is recent (e.g., less than 24 hours old), it's used to avoid redundant downloads and reduce load on the NSE server.
 
-```python
-cache_file = Path("data/nifty500_symbols.json")
-if cache_file.exists():
-    # ... load from cache if recent ...
+   ```python
+   cache_file = Path("data/nifty500_symbols.json")
+   if cache_file.exists():
+       # ... load from cache if recent ...
+   ```
 
-The function first checks for a local cache file (`data/nifty500_symbols.json`). If the cached list is recent (e.g., less than 24 hours old), it's used to avoid redundant downloads and reduce load on the NSE server.
+   *Significance*: Improves performance and respects data provider limits.
 
+2. **Fetching from NSE India**: If the cache is missing or stale, the script attempts to download the list from the official NSE India website using URLs like:
 
-- *Significance*: Improves performance and respects data provider limits.
+   ```text
+   "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
+   ```
 
-1. **Fetching from NSE India**: If the cache is missing or stale, the script attempts to download the list from the official NSE India website using URLs like:
+   A `User-Agent` header is set in the `requests.get` call to mimic a browser, which can be necessary to access some websites.
 
-`"https://archives.nseindia.com/content/indices/ind_nifty500list.csv"`
-A `User-Agent` header is set in the `requests.get` call to mimic a browser, which can be necessary to access some websites.
+   *Significance*: Ensures the symbol list is sourced from the authoritative provider.
 
+3. **Symbol Formatting**: The downloaded symbols (e.g., "RELIANCE") are appended with `.NS` (e.g., "RELIANCE.NS") to make them compatible with Yahoo Finance's ticker format for Indian stocks.
 
-- *Significance*: Ensures the symbol list is sourced from the authoritative provider.
+4. **Sector & Industry Mapping**: The CSV file from NSE typically contains sector and industry information for each stock.
 
-1. **Symbol Formatting**: The downloaded symbols (e.g., "RELIANCE") are appended with `.NS` (e.g., "RELIANCE.NS") to make them compatible with Yahoo Finance's ticker format for Indian stocks.
-1. **Sector & Industry Mapping**: The CSV file from NSE typically contains sector and industry information for each stock.
+   ```python
+   sector_col = next((col for col in ['Sector', 'Industry', ...] if col in df.columns), None)
 
-```python
-sector_col = next((col for col in ['Sector', 'Industry', ...] if col in df.columns), None)
+   # ...
 
-# ...
+   SECTOR_MAPPING = {f"{row['Symbol']}.NS": row[sector_col] for _, row in df.iterrows()}
+   ```
 
+   This information is extracted and stored in global dictionaries `SECTOR_MAPPING` and `INDUSTRY_MAPPING`.
 
-SECTOR_MAPPING = {{f"{{row['Symbol']}}.NS": row[sector_col] for _, row in df.iterrows()}}
-
-
-This information is extracted and stored in global dictionaries `SECTOR_MAPPING` and `INDUSTRY_MAPPING`.
-
-
-- *Significance*: Crucial for sector-based analysis, relative strength comparisons against sector peers, and building sector-rotation strategies.
+   *Significance*: Crucial for sector-based analysis, relative strength comparisons against sector peers, and building sector-rotation strategies.
 
 - **RELIANCE.NS Example**:
 
@@ -167,14 +166,13 @@ This information is extracted and stored in global dictionaries `SECTOR_MAPPING`
 - **Process**:
 
 ```python
-    ticker = yf.Ticker(symbol)
-    info = ticker.info
-    if 'sector' in info and info['sector']:
+ticker = yf.Ticker(symbol)
+info = ticker.info
+if 'sector' in info and info['sector']:
+    SECTOR_MAPPING[symbol] = info['sector']
+```
 
-SECTOR_MAPPING[symbol] = info['sector']
-
-
-    For each symbol with missing data, it fetches the `ticker.info` dictionary from Yahoo Finance and extracts the `sector` and `industry` fields if available.
+For each symbol with missing data, it fetches the `ticker.info` dictionary from Yahoo Finance and extracts the `sector` and `industry` fields if available.
 
 - **Significance**: Aims to ensure that every stock in the universe has associated sector and industry metadata, which is vital for comprehensive analysis. This also acts as a fallback.
 
@@ -224,12 +222,16 @@ Once the symbol universe is defined, the pipeline processes each stock individua
 
 - To fetch daily data for RELIANCE.NS for the past 2 years:
 
-`data = yf.Ticker("RELIANCE.NS").history(period="2y", interval="1d", auto_adjust=True)`
+```python
+data = yf.Ticker("RELIANCE.NS").history(period="2y", interval="1d", auto_adjust=True)
+```
 
+- A typical row in the resulting DataFrame for RELIANCE.NS on June 8, 2025 might look like:
 
-- A typical row in the resulting DataFrame for RELIANCE.NS on `{reliance_example_date}` might look like:
+```text
+Date: 2025-06-08, Open: 1430.00, High: 1465.00, Low: 1425.00, Close: 1448.80, Volume: 5,200,100
+```
 
-`Date: {reliance_example_date}, Open: 2930.00, High: 2965.00, Low: 2925.00, Close: {reliance_close_price}, Volume: 5,200,100`
 (Note: Prices are adjusted if `auto_adjust=True`).
 
 ### 4.B. Technical Indicators
