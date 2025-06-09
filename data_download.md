@@ -37,8 +37,8 @@ This pipeline transforms raw OHLCV data into 69 comprehensive features, each cri
 📊 Technical Indicators: 63 indicators calculated across 70 columns
 🔧 Processing Speed: 212 rows/second for full feature engineering
 💾 Storage Efficiency: 491 KB parquet file (compressed from 2.1 MB CSV)
+```
 
-```text
 The pipeline demonstrates exceptional efficiency, processing two years of complex financial data with sub-second technical analysis calculations. This performance is critical for real-time trading applications where latency directly impacts profitability.
 
 ## 2. Core Architecture & Setup (`download_nifty500_data.py`)
@@ -82,18 +82,14 @@ The `download_nifty500_data.py` script orchestrates the entire data collection p
 - **Logging Setup**:
 
 ```python
-    logging.basicConfig(
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+```
 
-```text
-level=logging.INFO,
-format='%(asctime)s - %(levelname)s - %(message)s'
-
-```text
-    )
-    logger = logging.getLogger(__name__)
-
-```text
-    This configures application-wide logging to output messages with a timestamp, log level, and the message itself. `INFO` level provides a good balance of detail.
+This configures application-wide logging to output messages with a timestamp, log level, and the message itself. `INFO` level provides a good balance of detail.
 
 - **Global Market Definitions**:
 
@@ -121,52 +117,38 @@ Before any stock-specific data can be downloaded, the pipeline must first identi
 
 1. **Caching**:
 
-```text
 ```python
 cache_file = Path("data/nifty500_symbols.json")
 if cache_file.exists():
     # ... load from cache if recent ...
 
-```text
-```text
-```text
-```text
-```text
 The function first checks for a local cache file (`data/nifty500_symbols.json`). If the cached list is recent (e.g., less than 24 hours old), it's used to avoid redundant downloads and reduce load on the NSE server.
 
-```text
 
 - *Significance*: Improves performance and respects data provider limits.
 
 1. **Fetching from NSE India**: If the cache is missing or stale, the script attempts to download the list from the official NSE India website using URLs like:
 
-```text
 `"https://archives.nseindia.com/content/indices/ind_nifty500list.csv"`
 A `User-Agent` header is set in the `requests.get` call to mimic a browser, which can be necessary to access some websites.
 
-```text
 
 - *Significance*: Ensures the symbol list is sourced from the authoritative provider.
 
 1. **Symbol Formatting**: The downloaded symbols (e.g., "RELIANCE") are appended with `.NS` (e.g., "RELIANCE.NS") to make them compatible with Yahoo Finance's ticker format for Indian stocks.
 1. **Sector & Industry Mapping**: The CSV file from NSE typically contains sector and industry information for each stock.
 
-```text
 ```python
 sector_col = next((col for col in ['Sector', 'Industry', ...] if col in df.columns), None)
 
 # ...
 
-```text
-```text
+
 SECTOR_MAPPING = {{f"{{row['Symbol']}}.NS": row[sector_col] for _, row in df.iterrows()}}
 
-```text
-```text
-```text
+
 This information is extracted and stored in global dictionaries `SECTOR_MAPPING` and `INDUSTRY_MAPPING`.
 
-```text
 
 - *Significance*: Crucial for sector-based analysis, relative strength comparisons against sector peers, and building sector-rotation strategies.
 
@@ -189,11 +171,9 @@ This information is extracted and stored in global dictionaries `SECTOR_MAPPING`
     info = ticker.info
     if 'sector' in info and info['sector']:
 
-```text
 SECTOR_MAPPING[symbol] = info['sector']
 
-```text
-```text
+
     For each symbol with missing data, it fetches the `ticker.info` dictionary from Yahoo Finance and extracts the `sector` and `industry` fields if available.
 
 - **Significance**: Aims to ensure that every stock in the universe has associated sector and industry metadata, which is vital for comprehensive analysis. This also acts as a fallback.
@@ -244,18 +224,14 @@ Once the symbol universe is defined, the pipeline processes each stock individua
 
 - To fetch daily data for RELIANCE.NS for the past 2 years:
 
-```text
 `data = yf.Ticker("RELIANCE.NS").history(period="2y", interval="1d", auto_adjust=True)`
 
-```text
 
 - A typical row in the resulting DataFrame for RELIANCE.NS on `{reliance_example_date}` might look like:
 
-```text
 `Date: {reliance_example_date}, Open: 2930.00, High: 2965.00, Low: 2925.00, Close: {reliance_close_price}, Volume: 5,200,100`
 (Note: Prices are adjusted if `auto_adjust=True`).
 
-```text
 ### 4.B. Technical Indicators
 
 - **Integration**: Technical indicators are typically calculated after the raw OHLCV data is fetched. The `download_historical_data_for_symbol` function calls `add_technical_indicators` (from `technical_indicators.py`) and also includes direct `talib` calls for candlestick patterns.
@@ -533,16 +509,12 @@ Once the symbol universe is defined, the pipeline processes each stock individua
 
 - **Methodology**: The script currently uses a hardcoded dictionary of representative average metrics for various Indian sectors.
 
-```text
 ```python
 sector_data = { 'Information Technology': {'pe_ratio': 25.0, ...}, ... }
 
-```text
-```text
-```text
+
 Ideally, this would be sourced from a dynamic, up-to-date database or API.
 
-```text
 
 - **Significance**: Comparing a stock's metrics (e.g., P/E, P/B, Dividend Yield) to its sector average helps in relative valuation.
 
@@ -731,7 +703,6 @@ The entire process of fetching and processing data for all Nifty 500 stocks is m
 
 #### Mathematical Definition
 
-```text
 SMA(n,t) = (1/n) × Σ(i=0 to n-1) P(t-i)
 
 Where:
@@ -742,7 +713,6 @@ Where:
 
 - t = Current time
 
-```text
 
 #### Advanced Implementation with Edge Cases
 
@@ -765,10 +735,8 @@ def calculate_sma(data, window, min_periods=None):
     """
     if min_periods is None:
 
-```text
 min_periods = max(1, window // 2)
 
-```text
     # Basic SMA calculation
 
     sma = data.rolling(window=window, min_periods=min_periods).mean()
@@ -785,16 +753,13 @@ min_periods = max(1, window // 2)
     
     return pd.DataFrame({
 
-```text
 'sma': sma,
 'confidence': confidence,
 'volatility': coefficient_of_variation,
 'data_points': data_points
 
-```text
     })
 
-```text
 
 #### Trading Signal Generation
 
@@ -830,7 +795,6 @@ def generate_sma_signals(price_data, short_window=20, long_window=50):
     
     return {
 
-```text
 'golden_cross': golden_cross & volume_confirmation,
 'death_cross': death_cross & volume_confirmation,
 'trend_strength_short': np.clip(price_vs_short + 50, 0, 100),
@@ -838,10 +802,8 @@ def generate_sma_signals(price_data, short_window=20, long_window=50):
 'sma_short': sma_short,
 'sma_long': sma_long
 
-```text
     }
 
-```text
 
 #### Real-World Performance Analysis - Reliance Industries
 
@@ -882,13 +844,11 @@ regime_performance = {
     'downtrend': {'win_rate': 35.6, 'avg_gain': 4.8}
 }
 
-```text
 
 #### Exponential Moving Average (EMA)
 
 #### Mathematical Foundation
 
-```text
 EMA(t) = α × P(t) + (1-α) × EMA(t-1)
 
 Where:
@@ -903,7 +863,6 @@ Where:
 
 Initial condition: EMA(0) = P(0)
 
-```text
 
 #### Advanced EMA with Adaptive Period
 
@@ -940,24 +899,19 @@ def calculate_adaptive_ema(data, base_period=14, volatility_factor=2.0):
     
     for i in range(1, len(data)):
 
-```text
 alpha = 2 / (adaptive_period.iloc[i] + 1)
 adaptive_ema.iloc[i] = (alpha * data['close'].iloc[i] + 
                        (1 - alpha) * adaptive_ema.iloc[i-1])
 
-```text
     return {
 
-```text
 'adaptive_ema': adaptive_ema,
 'adaptive_period': adaptive_period,
 'volatility_percentile': volatility_percentile,
 'atr': atr
 
-```text
     }
 
-```text
 
 #### EMA Envelope Strategy
 
@@ -989,7 +943,6 @@ def calculate_ema_envelopes(data, period=20, envelope_pct=2.5):
     
     return {
 
-```text
 'ema': ema,
 'upper_envelope': upper_envelope,
 'lower_envelope': lower_envelope,
@@ -997,16 +950,13 @@ def calculate_ema_envelopes(data, period=20, envelope_pct=2.5):
 'buy_signal': mean_reversion_buy,
 'sell_signal': mean_reversion_sell
 
-```text
     }
 
-```text
 
 #### Moving Average Convergence Divergence (MACD)
 
 #### Complete Mathematical Formulation
 
-```text
 MACD Line = EMA(12) - EMA(26)
 Signal Line = EMA(9)[MACD Line]
 Histogram = MACD Line - Signal Line
@@ -1014,7 +964,6 @@ Histogram = MACD Line - Signal Line
 MACD Oscillator = (MACD Line / EMA(26)) × 100
 MACD Momentum = MACD Line(t) - MACD Line(t-1)
 
-```text
 
 #### Professional MACD Implementation
 
@@ -1075,7 +1024,6 @@ def calculate_comprehensive_macd(data, fast=12, slow=26, signal=9):
     
     return {
 
-```text
 'macd': macd_line,
 'signal': signal_line,
 'histogram': histogram,
@@ -1089,7 +1037,6 @@ def calculate_comprehensive_macd(data, fast=12, slow=26, signal=9):
 'ema_fast': ema_fast,
 'ema_slow': ema_slow
 
-```text
     }
 
 def find_peaks(data, distance=5, prominence=None):
@@ -1100,7 +1047,6 @@ def find_peaks(data, distance=5, prominence=None):
     peaks, properties = scipy_find_peaks(data, distance=distance, prominence=prominence)
     return peaks, properties
 
-```text
 
 #### MACD Trading Strategy with Risk Management
 
@@ -1131,11 +1077,9 @@ def macd_strategy_with_risk_management(data, stop_loss_pct=3.0, take_profit_pct=
 
     primary_entry = (macd_data['bullish_crossover'] & 
 
-```text
             (macd_data['macd'] > macd_data['macd'].shift(1)) &
             (macd_data['histogram'] > 0))
 
-```text
     # Zero line confirmation
 
     zero_line_support = macd_data['macd'] > 0
@@ -1152,18 +1096,15 @@ def macd_strategy_with_risk_management(data, stop_loss_pct=3.0, take_profit_pct=
     
     for i in range(1, len(data)):
 
-```text
 if confirmed_entry.iloc[i] and positions.iloc[i-1] == 0:
     positions.iloc[i] = 1  # Long position
 
-```text
-```text
+
     entry_prices.iloc[i] = data['close'].iloc[i]
 elif positions.iloc[i-1] == 1:
     # Check exit conditions
 
-```text
-```text
+
     current_price = data['close'].iloc[i]
     entry_price = entry_prices[entry_prices.notna()].iloc[-1]
     
@@ -1174,29 +1115,23 @@ elif positions.iloc[i-1] == 1:
         return_pct >= take_profit_pct):
         positions.iloc[i] = 0  # Close position
 
-```text
-```text
+
     else:
         positions.iloc[i] = 1  # Hold position
 
-```text
-```text
+
         entry_prices.iloc[i] = entry_price
 
-```text
     return {
 
-```text
 'positions': positions,
 'entry_prices': entry_prices,
 'signals': confirmed_entry,
 'exits': exit_signal,
 'macd_data': macd_data
 
-```text
     }
 
-```text
 
 ### 5.2 Momentum Oscillators
 
@@ -1204,7 +1139,6 @@ elif positions.iloc[i-1] == 1:
 
 #### Complete Mathematical Derivation
 
-```text
 Step 1: Price Changes
 Δ(t) = Close(t) - Close(t-1)
 
@@ -1224,7 +1158,6 @@ RSI(t) = 100 - (100 / (1 + RS(t)))
 
 Where n = period (typically 14)
 
-```text
 
 #### Advanced RSI with Multiple Timeframes
 
@@ -1247,34 +1180,28 @@ def calculate_multi_timeframe_rsi(data, periods=[14, 21, 35]):
     
     for period in periods:
 
-```text
 # Calculate basic RSI
 
-```text
-```text
+
 delta = data['close'].diff()
 gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
 loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
 
 # Handle division by zero
 
-```text
-```text
+
 rs = gain / loss.replace(0, np.inf)
 rsi = 100 - (100 / (1 + rs))
 
 # RSI trend (rate of change)
 
-```text
-```text
+
 rsi_trend = rsi.diff(5)  # 5-period RSI momentum
 
-```text
-```text
+
 # Dynamic overbought/oversold levels based on volatility
 
-```text
-```text
+
 rsi_volatility = rsi.rolling(50).std()
 overbought_level = 70 + np.clip(rsi_volatility - 10, -5, 10)
 oversold_level = 30 - np.clip(rsi_volatility - 10, -5, 10)
@@ -1288,7 +1215,6 @@ rsi_data[f'rsi_{period}'] = {
     'loss': loss
 }
 
-```text
     # Multi-timeframe consensus
 
     rsi_values = [rsi_data[f'rsi_{p}']['rsi'] for p in periods]
@@ -1296,16 +1222,13 @@ rsi_data[f'rsi_{period}'] = {
     
     return {
 
-```text
 'individual_rsi': rsi_data,
 'consensus_rsi': rsi_consensus,
 'bullish_consensus': (rsi_consensus < 30).astype(int),
 'bearish_consensus': (rsi_consensus > 70).astype(int)
 
-```text
     }
 
-```text
 
 #### RSI Divergence Detection
 
@@ -1336,32 +1259,27 @@ def detect_rsi_divergences(price_data, rsi_data, lookback=20):
     
     divergences = {
 
-```text
 'regular_bullish': pd.Series(False, index=price.index),
 'regular_bearish': pd.Series(False, index=price.index),
 'hidden_bullish': pd.Series(False, index=price.index),
 'hidden_bearish': pd.Series(False, index=price.index)
 
-```text
     }
     
     # Check for divergences at each trough/peak
 
     for i in range(len(price_troughs) - 1):
 
-```text
 current_trough = price_troughs[i+1]
 previous_trough = price_troughs[i]
 
 # Regular bullish divergence
 
-```text
-```text
+
 if (price.iloc[current_trough] < price.iloc[previous_trough] and
     rsi.iloc[current_trough] > rsi.iloc[previous_trough]):
     divergences['regular_bullish'].iloc[current_trough] = True
 
-```text
     # Similar logic for other divergence types...
 
     
@@ -1373,19 +1291,13 @@ def find_local_extrema(data, extrema_type='peaks', window=5):
     """
     if extrema_type == 'peaks':
 
-```text
 peaks, _ = find_peaks(data, distance=window)
 return peaks
 
-```text
     else:  # troughs
 
-```text
 troughs, _ = find_peaks(-data, distance=window)
 return troughs
-
-```text
-```text
 
 #### Case Study: TCS RSI Strategy Performance
 
@@ -1397,59 +1309,47 @@ tcs_rsi_performance = {
     'strategy': 'Multi-timeframe RSI with Divergences',
     'parameters': {
 
-```text
 'rsi_periods': [14, 21, 35],
 'oversold_threshold': 30,
 'overbought_threshold': 70,
 'divergence_lookback': 20
 
-```text
     },
     'performance_metrics': {
 
-```text
 'total_trades': 42,
 'winning_trades': 27,
 'win_rate': 64.3,  # %
 
-```text
-```text
+
 'average_gain': 7.2,  # %
 
-```text
-```text
+
 'average_loss': -3.8,  # %
 
-```text
-```text
+
 'profit_factor': 1.89,
 'maximum_drawdown': -9.6,  # %
 
-```text
-```text
+
 'sharpe_ratio': 1.56,
 'annual_return': 19.4  # % vs buy-and-hold: 15.7%
 
-```text
     },
     'signal_breakdown': {
 
-```text
 'oversold_reversals': {'count': 18, 'success_rate': 72.2},
 'overbought_reversals': {'count': 15, 'success_rate': 60.0},
 'bullish_divergences': {'count': 9, 'success_rate': 77.8},
 'bearish_divergences': {'count': 7, 'success_rate': 71.4}
 
-```text
     },
     'best_performing_period': {
 
-```text
 'period': 'RSI_21',
 'reason': 'Best balance between sensitivity and noise reduction',
 'win_rate': 68.5
 
-```text
     }
 }
 
@@ -1461,13 +1361,11 @@ tcs_rsi_performance = {
 
 # 3. Dynamic thresholds improve performance in different volatility regimes
 
-```text
 
 #### Stochastic Oscillator
 
 #### Mathematical Foundation: (2)
 
-```text
 Fast %K = ((Close - Low_n) / (High_n - Low_n)) × 100
 Slow %K = SMA(Fast %K, m)
 %D = SMA(Slow %K, p)
@@ -1484,7 +1382,6 @@ Where:
 
 - n = Lookback period (typically 14)
 
-```text
 
 #### Professional Stochastic Implementation
 
@@ -1549,7 +1446,6 @@ def calculate_stochastic_oscillator(data, k_period=14, k_smooth=3, d_period=3):
     
     return {
 
-```text
 'fast_k': fast_k,
 'slow_k': slow_k,
 'd_line': d_line,
@@ -1561,7 +1457,6 @@ def calculate_stochastic_oscillator(data, k_period=14, k_smooth=3, d_period=3):
 'divergence_bullish': divergence_bullish,
 'divergence_bearish': divergence_bearish
 
-```text
     }
 
 def detect_stochastic_divergence(price, stochastic, divergence_type, lookback=10):
@@ -1572,39 +1467,30 @@ def detect_stochastic_divergence(price, stochastic, divergence_type, lookback=10
 
     if divergence_type == 'bullish':
 
-```text
 # Price makes lower lows, stochastic makes higher lows
 
-```text
-```text
+
 price_trend = price.rolling(lookback).min() == price
 stoch_trend = stochastic.rolling(lookback).apply(
     lambda x: x.iloc[-1] > x.iloc[0] if len(x) > 1 else False
 )
 return price_trend & stoch_trend
 
-```text
     else:
 
-```text
 # Price makes higher highs, stochastic makes lower highs
 
-```text
-```text
+
 price_trend = price.rolling(lookback).max() == price
 stoch_trend = stochastic.rolling(lookback).apply(
     lambda x: x.iloc[-1] < x.iloc[0] if len(x) > 1 else False
 )
 return price_trend & stoch_trend
 
-```text
-```text
-
 #### Williams %R
 
 #### Mathematical Definition: (2)
 
-```text
 Williams %R = ((Highest High - Close) / (Highest High - Lowest Low)) × -100
 
 Where:
@@ -1619,7 +1505,6 @@ Where:
 
 - Oversold: < -80
 
-```text
 
 #### Enhanced Williams %R Implementation
 
@@ -1662,18 +1547,14 @@ def calculate_williams_r(data, period=14):
 
     bullish_reversal = (oversold_condition & 
 
-```text
                (williams_r > williams_r.shift(1)) &
                (wr_momentum > 0))
 
-```text
     bearish_reversal = (overbought_condition & 
 
-```text
                (williams_r < williams_r.shift(1)) &
                (wr_momentum < 0))
 
-```text
     # Volume confirmation
 
     volume_spike = volume > volume.rolling(20).mean() * 1.5
@@ -1692,7 +1573,6 @@ def calculate_williams_r(data, period=14):
     
     return {
 
-```text
 'williams_r': williams_r,
 'wr_momentum': wr_momentum,
 'bullish_reversal': confirmed_bullish,
@@ -1702,7 +1582,6 @@ def calculate_williams_r(data, period=14):
 'wr_short': wr_short,
 'wr_long': wr_long
 
-```text
     }
 
 def calculate_single_williams_r(data, period):
@@ -1713,7 +1592,6 @@ def calculate_single_williams_r(data, period):
     lowest_low = data['low'].rolling(window=period).min()
     return ((highest_high - data['close']) / (highest_high - lowest_low)) * -100
 
-```text
 
 ### 5.3 Volatility Indicators
 
@@ -1721,7 +1599,6 @@ def calculate_single_williams_r(data, period):
 
 #### Complete Mathematical Framework
 
-```text
 Middle Band (MB) = SMA(20)
 Upper Band (UB) = MB + (k × σ)
 Lower Band (LB) = MB - (k × σ)
@@ -1738,7 +1615,6 @@ Additional metrics:
 %B = (Close - LB) / (UB - LB)
 Bandwidth = (UB - LB) / MB × 100
 
-```text
 
 #### Professional Bollinger Bands System
 
@@ -1794,11 +1670,9 @@ def calculate_bollinger_bands_system(data, window=20, num_std=2):
 
     price_position = np.where(
 
-```text
 close > upper_band, 'above_upper',
 np.where(close < lower_band, 'below_lower', 'between_bands')
 
-```text
     )
     
     # Mean reversion signals
@@ -1822,16 +1696,13 @@ np.where(close < lower_band, 'below_lower', 'between_bands')
 
     volatility_regime = np.where(
 
-```text
 bandwidth > bandwidth.rolling(252).quantile(0.8), 'high_volatility',
 np.where(bandwidth < bandwidth.rolling(252).quantile(0.2), 'low_volatility', 'normal')
 
-```text
     )
     
     return {
 
-```text
 'upper_band': upper_band,
 'middle_band': sma,
 'lower_band': lower_band,
@@ -1847,10 +1718,8 @@ np.where(bandwidth < bandwidth.rolling(252).quantile(0.2), 'low_volatility', 'no
 'walk_lower': walk_lower,
 'volatility_regime': volatility_regime
 
-```text
     }
 
-```text
 
 #### Bollinger Band Strategy Backtesting
 
@@ -1871,22 +1740,16 @@ def backtest_bollinger_strategy(data, strategy_type='mean_reversion'):
     
     if strategy_type == 'mean_reversion':
 
-```text
 return backtest_mean_reversion_strategy(data, bb_data)
 
-```text
     elif strategy_type == 'breakout':
 
-```text
 return backtest_breakout_strategy(data, bb_data)
 
-```text
     else:
 
-```text
 return backtest_squeeze_strategy(data, bb_data)
 
-```text
 def backtest_mean_reversion_strategy(data, bb_data):
     """
     Mean reversion strategy: Buy oversold, sell overbought
@@ -1915,7 +1778,6 @@ def backtest_mean_reversion_strategy(data, bb_data):
     
     return {
 
-```text
 'total_return': total_return,
 'annual_return': annual_return,
 'volatility': volatility,
@@ -1924,7 +1786,6 @@ def backtest_mean_reversion_strategy(data, bb_data):
 'signals': signals,
 'returns': returns
 
-```text
     }
 
 def calculate_max_drawdown(returns):
@@ -1936,7 +1797,6 @@ def calculate_max_drawdown(returns):
     drawdown = (cum_returns - running_max) / running_max
     return drawdown.min()
 
-```text
 
 #### Real-World Performance: Infosys Bollinger Bands Strategy
 
@@ -1947,90 +1807,69 @@ def calculate_max_drawdown(returns):
 infy_bb_performance = {
     'mean_reversion_strategy': {
 
-```text
 'total_return': 0.423,  # 42.3%
 
-```text
-```text
+
 'annual_return': 0.094,  # 9.4%
 
-```text
-```text
+
 'volatility': 0.187,     # 18.7%
 
-```text
-```text
+
 'sharpe_ratio': 0.51,
 'max_drawdown': -0.156,  # -15.6%
 
-```text
-```text
+
 'win_rate': 0.573,       # 57.3%
 
-```text
-```text
+
 'total_trades': 67,
 'avg_trade_duration': 8.3  # days
 
-```text
     },
     'breakout_strategy': {
 
-```text
 'total_return': 0.587,   # 58.7%
 
-```text
-```text
+
 'annual_return': 0.123,  # 12.3%
 
-```text
-```text
+
 'volatility': 0.234,     # 23.4%
 
-```text
-```text
+
 'sharpe_ratio': 0.68,
 'max_drawdown': -0.187,  # -18.7%
 
-```text
-```text
+
 'win_rate': 0.461,       # 46.1%
 
-```text
-```text
+
 'total_trades': 43,
 'avg_trade_duration': 12.7  # days
 
-```text
     },
     'squeeze_breakout_strategy': {
 
-```text
 'total_return': 0.734,   # 73.4%
 
-```text
-```text
+
 'annual_return': 0.158,  # 15.8%
 
-```text
-```text
+
 'volatility': 0.201,     # 20.1%
 
-```text
-```text
+
 'sharpe_ratio': 0.89,
 'max_drawdown': -0.123,  # -12.3%
 
-```text
-```text
+
 'win_rate': 0.689,       # 68.9%
 
-```text
-```text
+
 'total_trades': 29,
 'avg_trade_duration': 15.4  # days
 
-```text
     }
 }
 
@@ -2044,16 +1883,13 @@ infy_bb_performance = {
 
 # 4. Volume confirmation improves win rate by ~12%
 
-```text
 
 #### Mathematical Definition: (3)
 
-```text
 MACD Line = EMA(12) - EMA(26)
 Signal Line = EMA(9) of MACD Line
 Histogram = MACD Line - Signal Line
 
-```text
 
 #### Component Analysis
 
@@ -2093,17 +1929,14 @@ def calculate_macd(data, fast=12, slow=26, signal=9):
     
     return {
 
-```text
 'macd': macd_line,
 'signal': signal_line, 
 'histogram': histogram,
 'bullish_cross': bullish_crossover,
 'bearish_cross': bearish_crossover
 
-```text
     }
 
-```text
 
 #### Trading Strategies
 
@@ -2150,7 +1983,6 @@ macd_data = calculate_macd(hdfc_data)
 
 # Signal strength validated by histogram momentum increase
 
-```text
 
 ### Volatility Indicators
 
@@ -2166,7 +1998,6 @@ True Range = max(
 )
 ATR = EMA(True Range, period)
 
-```text
 
 #### Advanced ATR Implementation with Market Applications
 
@@ -2217,26 +2048,21 @@ def calculate_comprehensive_atr(data, period=14):
 
     regime = np.where(
 
-```text
 vol_percentile > 80, 'high_volatility',
 np.where(vol_percentile < 20, 'low_volatility', 'normal_volatility')
 
-```text
     )
     
     return {
 
-```text
 'atr': atr,
 'true_range': true_range,
 'atr_percentage': atr_percentage,
 'volatility_percentile': vol_percentile,
 'regime': regime
 
-```text
     }
 
-```text
 
 ### 5.4 Volume Indicators
 
@@ -2251,7 +2077,6 @@ If Close = Previous Close: OBV = Previous OBV
 
 Initial condition: OBV(0) = 0
 
-```text
 
 #### Advanced OBV Analysis System
 
@@ -2282,11 +2107,9 @@ def calculate_comprehensive_obv(data):
     price_change = close.diff()
     volume_direction = np.where(
 
-```text
 price_change > 0, volume,
 np.where(price_change < 0, -volume, 0)
 
-```text
     )
     obv = volume_direction.cumsum()
     
@@ -2322,7 +2145,6 @@ np.where(price_change < 0, -volume, 0)
     
     return {
 
-```text
 'obv': obv,
 'obv_trend': obv_trend,
 'obv_momentum': obv_momentum,
@@ -2334,7 +2156,6 @@ np.where(price_change < 0, -volume, 0)
 'strong_accumulation': strong_accumulation,
 'strong_distribution': strong_distribution
 
-```text
     }
 
 def detect_obv_price_divergence(price_momentum, obv_momentum, threshold=0.5):
@@ -2359,15 +2180,12 @@ def detect_obv_price_divergence(price_momentum, obv_momentum, threshold=0.5):
     
     return {
 
-```text
 'bullish_divergence': bullish_divergence,
 'bearish_divergence': bearish_divergence,
 'divergence_strength': np.abs(price_norm - obv_norm)
 
-```text
     }
 
-```text
 
 #### Volume Weighted Average Price (VWAP)
 
@@ -2379,7 +2197,6 @@ VWAP = Σ(Price × Volume) / Σ(Volume)
 Intraday VWAP resets each trading day
 Price typically uses (High + Low + Close) / 3
 
-```text
 
 #### Professional VWAP Implementation
 
@@ -2420,14 +2237,12 @@ def calculate_comprehensive_vwap(data, include_overnight=False):
     
     for date, group in data_with_date.groupby('date'):
 
-```text
 group = group.copy()
 cumulative_volume = group['volume'].cumsum()
 cumulative_pv = (typical_price.loc[group.index] * group['volume']).cumsum()
 group['vwap'] = cumulative_pv / cumulative_volume
 vwap_data.append(group)
 
-```text
     result_df = pd.concat(vwap_data)
     vwap = result_df['vwap']
     
@@ -2454,13 +2269,10 @@ vwap_data.append(group)
     below_vwap_volume = np.where(close < vwap, volume, 0)
     volume_imbalance = (above_vwap_volume.rolling(20).sum() - 
 
-```text
                below_vwap_volume.rolling(20).sum()) / volume.rolling(20).sum()
 
-```text
     return {
 
-```text
 'vwap': vwap,
 'vwap_upper_1': vwap_upper_1,
 'vwap_lower_1': vwap_lower_1,
@@ -2472,7 +2284,6 @@ vwap_data.append(group)
 'volume_imbalance': volume_imbalance,
 'typical_price': typical_price
 
-```text
     }
 
 def calculate_vwap_standard_deviation(typical_price, volume, vwap):
@@ -2494,7 +2305,6 @@ def calculate_vwap_standard_deviation(typical_price, volume, vwap):
     
     return vwap_std.fillna(0)
 
-```text
 
 #### Accumulation/Distribution Line (A/D Line)
 
@@ -2505,7 +2315,6 @@ Money Flow Multiplier = ((Close - Low) - (High - Close)) / (High - Low)
 Money Flow Volume = Money Flow Multiplier × Volume
 A/D Line = Previous A/D + Money Flow Volume
 
-```text
 
 #### Advanced A/D Line Implementation
 
@@ -2529,10 +2338,8 @@ def calculate_accumulation_distribution(data):
 
     mf_multiplier = (
 
-```text
 (data['close'] - data['low']) - (data['high'] - data['close'])
 
-```text
     ) / high_low_diff
     
     # Money Flow Volume
@@ -2545,15 +2352,12 @@ def calculate_accumulation_distribution(data):
     
     return {
 
-```text
 'ad_line': ad_line,
 'mf_multiplier': mf_multiplier,
 'mf_volume': mf_volume
 
-```text
     }
 
-```text
 
 ---
 
@@ -2570,7 +2374,6 @@ def calculate_accumulation_distribution(data):
 reliance_output = {
     'basic_data': {
 
-```text
 'date': '2025-06-08',
 'symbol': 'RELIANCE.NS',
 'open': 1442.50,
@@ -2580,11 +2383,9 @@ reliance_output = {
 'volume': 8750342,
 'adj_close': 1448.80
 
-```text
     },
     'technical_indicators': {
 
-```text
 'sma_20': 1428.37,
 'sma_50': 1354.07,
 'ema_20': 1425.50,
@@ -2604,27 +2405,22 @@ reliance_output = {
 'stoch_d': 72.3,
 'obv': 145230000
 
-```text
     },
     'fundamental_data': {
 
-```text
 'pe_ratio': 24.5,
 'pb_ratio': 2.8,
 'debt_to_equity': 0.35,
 'roe': 11.8,
 'market_cap': 9784500000000,  # ₹9.78 trillion
 
-```text
-```text
+
 'revenue_growth': 0.124,
 'profit_margin': 0.089
 
-```text
     },
     'market_context': {
 
-```text
 'rs_vs_nifty50': 1.08,
 'rs_vs_energy_sector': 1.15,
 'correlation_oil': 0.74,
@@ -2634,11 +2430,9 @@ reliance_output = {
 'volatility_regime': 'normal',
 'sector_rotation_score': 85
 
-```text
     },
     'patterns_signals': {
 
-```text
 'candlestick_pattern': 'none',
 'trend_direction': 'uptrend',
 'support_level': 1420.0,
@@ -2646,76 +2440,59 @@ reliance_output = {
 'pattern_strength': 'moderate',
 'breakout_probability': 0.68
 
-```text
     },
     'risk_metrics': {
 
-```text
 'var_95': -31.2,  # ₹31.20 daily VaR
 
-```text
-```text
+
 'volatility_21d': 0.0163,  # 1.63% daily
 
-```text
-```text
+
 'volatility_annual': 0.2138,  # 21.38% annual
 
-```text
-```text
+
 'sharpe_ratio': 0.68,
 'max_drawdown': -0.089,  # -8.9%
 
-```text
-```text
+
 'beta_vs_market': 1.12
 
-```text
     },
     'options_data': {
 
-```text
 'put_call_ratio': 0.95,
 'implied_volatility': 0.22,
 'max_pain': 1450,
 'call_oi_1500': 245000,
 'put_oi_1400': 187000
 
-```text
     },
     'news_sentiment': {
 
-```text
 'sentiment_score': 0.75,
 'news_count_24h': 12,
 'positive_mentions': 9,
 'negative_mentions': 1,
 'neutral_mentions': 2
 
-```text
     },
     'institutional_data': {
 
-```text
 'fii_holding': 0.234,  # 23.4%
 
-```text
-```text
+
 'dii_holding': 0.238,  # 23.8%
 
-```text
-```text
+
 'promoter_holding': 0.503,  # 50.3%
 
-```text
-```text
+
 'public_holding': 0.025   # 2.5%
 
-```text
     }
 }
 
-```text
 
 ### File Output Formats
 
@@ -2734,7 +2511,6 @@ df.to_parquet(output_file, compression='snappy', index=True)
 
 # Compression ratio: 76% vs CSV
 
-```text
 
 #### 2. CSV Format (Human-readable)
 
@@ -2751,7 +2527,6 @@ df.to_csv(output_file, index=True, float_format='%.4f')
 
 # Human-readable, compatible with Excel
 
-```text
 
 #### 3. JSON Format (API-friendly)
 
@@ -2766,7 +2541,6 @@ df.to_json(output_file, orient='records', date_format='iso', indent=2)
 
 # Easy integration with JavaScript frontends
 
-```text
 
 ### Data Quality Metrics
 
@@ -2788,7 +2562,6 @@ pipeline_summary = {
     'error_log_entries': 12
 }
 
-```text
 
 ### Column Structure Reference
 
@@ -2809,7 +2582,6 @@ column_structure = {
     'options': ['put_call_ratio', 'implied_volatility', 'max_pain']
 }
 
-```text
 
 ### Real-Time Data Streaming
 
@@ -2839,29 +2611,24 @@ live_data_stream = {
 
     'signals': {
 
-```text
 'rsi_signal': 'neutral',
 'macd_signal': 'bearish_cross',
 'bb_signal': 'upper_resistance',
 'volume_signal': 'high',
 'overall_signal': 'hold'
 
-```text
     },
     'intraday_levels': {
 
-```text
 'pivot': 1448.80,
 'resistance_1': 1465.20,
 'support_1': 1432.40,
 'day_high': 1456.70,
 'day_low': 1445.50
 
-```text
     }
 }
 
-```text
 
 ---
 
@@ -2888,17 +2655,14 @@ def robust_download_with_fallback(symbol, max_retries=5):
     """
     sources = [
 
-```text
 lambda: yf.download(symbol),
 lambda: download_from_nse_direct(symbol),
 lambda: load_from_cache(symbol)
 
-```text
     ]
     
     for attempt, source_func in enumerate(sources):
 
-```text
 try:
     data = source_func()
     if validate_data_quality(data):
@@ -2907,10 +2671,8 @@ except Exception as e:
     logger.warning(f"Source {attempt+1} failed for {symbol}: {e}")
     continue
 
-```text
     raise Exception(f"All data sources failed for {symbol}")
 
-```text
 
 #### 2. Indicator Calculation Errors
 
@@ -2934,40 +2696,31 @@ def safe_indicator_calculation(func, data, **kwargs):
     """
     try:
 
-```text
 # Check minimum data requirements
 
-```text
-```text
+
 min_periods = kwargs.get('min_periods', 20)
 if len(data) < min_periods:
     return pd.Series(np.nan, index=data.index)
 
 # Execute calculation with error handling
 
-```text
-```text
+
 result = func(data, **kwargs)
 
 # Validate results
 
-```text
-```text
+
 if result.isna().all():
     logger.warning(f"All NaN values in {func.__name__}")
     return pd.Series(np.nan, index=data.index)
 
 return result
 
-```text
     except Exception as e:
 
-```text
 logger.error(f"Error in {func.__name__}: {e}")
 return pd.Series(np.nan, index=data.index)
-
-```text
-```text
 
 #### 3. Memory Management Issues
 
@@ -2993,33 +2746,27 @@ def memory_efficient_processing(symbols, chunk_size=50):
     
     for i in range(0, len(symbols), chunk_size):
 
-```text
 chunk = symbols[i:i+chunk_size]
 
 # Process chunk
 
-```text
-```text
+
 chunk_results = process_symbol_chunk(chunk)
 results.update(chunk_results)
 
 # Force garbage collection
 
-```text
-```text
+
 gc.collect()
 
 # Optional: Save intermediate results to disk
 
-```text
-```text
+
 if len(results) % 100 == 0:
     save_intermediate_results(results)
 
-```text
     return results
 
-```text
 
 ---
 
@@ -3036,7 +2783,6 @@ if len(results) % 100 == 0:
 reliance_output = {
     'basic_data': {
 
-```text
 'date': '2025-06-08',
 'symbol': 'RELIANCE.NS',
 'open': 1442.50,
@@ -3046,11 +2792,9 @@ reliance_output = {
 'volume': 8750342,
 'adj_close': 1448.80
 
-```text
     },
     'technical_indicators': {
 
-```text
 'sma_20': 1428.37,
 'sma_50': 1354.07,
 'ema_20': 1425.50,
@@ -3070,27 +2814,22 @@ reliance_output = {
 'stoch_d': 72.3,
 'obv': 145230000
 
-```text
     },
     'fundamental_data': {
 
-```text
 'pe_ratio': 24.5,
 'pb_ratio': 2.8,
 'debt_to_equity': 0.35,
 'roe': 11.8,
 'market_cap': 9784500000000,  # ₹9.78 trillion
 
-```text
-```text
+
 'revenue_growth': 0.124,
 'profit_margin': 0.089
 
-```text
     },
     'market_context': {
 
-```text
 'rs_vs_nifty50': 1.08,
 'rs_vs_energy_sector': 1.15,
 'correlation_oil': 0.74,
@@ -3100,11 +2839,9 @@ reliance_output = {
 'volatility_regime': 'normal',
 'sector_rotation_score': 85
 
-```text
     },
     'patterns_signals': {
 
-```text
 'candlestick_pattern': 'none',
 'trend_direction': 'uptrend',
 'support_level': 1420.0,
@@ -3112,76 +2849,59 @@ reliance_output = {
 'pattern_strength': 'moderate',
 'breakout_probability': 0.68
 
-```text
     },
     'risk_metrics': {
 
-```text
 'var_95': -31.2,  # ₹31.20 daily VaR
 
-```text
-```text
+
 'volatility_21d': 0.0163,  # 1.63% daily
 
-```text
-```text
+
 'volatility_annual': 0.2138,  # 21.38% annual
 
-```text
-```text
+
 'sharpe_ratio': 0.68,
 'max_drawdown': -0.089,  # -8.9%
 
-```text
-```text
+
 'beta_vs_market': 1.12
 
-```text
     },
     'options_data': {
 
-```text
 'put_call_ratio': 0.95,
 'implied_volatility': 0.22,
 'max_pain': 1450,
 'call_oi_1500': 245000,
 'put_oi_1400': 187000
 
-```text
     },
     'news_sentiment': {
 
-```text
 'sentiment_score': 0.75,
 'news_count_24h': 12,
 'positive_mentions': 9,
 'negative_mentions': 1,
 'neutral_mentions': 2
 
-```text
     },
     'institutional_data': {
 
-```text
 'fii_holding': 0.234,  # 23.4%
 
-```text
-```text
+
 'dii_holding': 0.238,  # 23.8%
 
-```text
-```text
+
 'promoter_holding': 0.503,  # 50.3%
 
-```text
-```text
+
 'public_holding': 0.025   # 2.5%
 
-```text
     }
 }
 
-```text
 
 ### File Output Formats (2)
 
@@ -3200,7 +2920,6 @@ df.to_parquet(output_file, compression='snappy', index=True)
 
 # Compression ratio: 76% vs CSV (2)
 
-```text
 
 #### 2. CSV Format (Human-readable): (2)
 
@@ -3217,7 +2936,6 @@ df.to_csv(output_file, index=True, float_format='%.4f')
 
 # Human-readable, compatible with Excel (2)
 
-```text
 
 #### 3. JSON Format (API-friendly): (2)
 
@@ -3232,7 +2950,6 @@ df.to_json(output_file, orient='records', date_format='iso', indent=2)
 
 # Easy integration with JavaScript frontends (2)
 
-```text
 
 ### Data Quality Metrics (2)
 
@@ -3254,7 +2971,6 @@ pipeline_summary = {
     'error_log_entries': 12
 }
 
-```text
 
 ### Column Structure Reference (2)
 
@@ -3275,7 +2991,6 @@ column_structure = {
     'options': ['put_call_ratio', 'implied_volatility', 'max_pain']
 }
 
-```text
 
 ### Real-Time Data Streaming (2)
 
@@ -3305,29 +3020,24 @@ live_data_stream = {
 
     'signals': {
 
-```text
 'rsi_signal': 'neutral',
 'macd_signal': 'bearish_cross',
 'bb_signal': 'upper_resistance',
 'volume_signal': 'high',
 'overall_signal': 'hold'
 
-```text
     },
     'intraday_levels': {
 
-```text
 'pivot': 1448.80,
 'resistance_1': 1465.20,
 'support_1': 1432.40,
 'day_high': 1456.70,
 'day_low': 1445.50
 
-```text
     }
 }
 
-```text
 
 ---
 
@@ -3354,17 +3064,14 @@ def robust_download_with_fallback(symbol, max_retries=5):
     """
     sources = [
 
-```text
 lambda: yf.download(symbol),
 lambda: download_from_nse_direct(symbol),
 lambda: load_from_cache(symbol)
 
-```text
     ]
     
     for attempt, source_func in enumerate(sources):
 
-```text
 try:
     data = source_func()
     if validate_data_quality(data):
@@ -3373,10 +3080,8 @@ except Exception as e:
     logger.warning(f"Source {attempt+1} failed for {symbol}: {e}")
     continue
 
-```text
     raise Exception(f"All data sources failed for {symbol}")
 
-```text
 
 #### 2. Indicator Calculation Errors (2)
 
@@ -3400,40 +3105,31 @@ def safe_indicator_calculation(func, data, **kwargs):
     """
     try:
 
-```text
 # Check minimum data requirements (2)
 
-```text
-```text
+
 min_periods = kwargs.get('min_periods', 20)
 if len(data) < min_periods:
     return pd.Series(np.nan, index=data.index)
 
 # Execute calculation with error handling (2)
 
-```text
-```text
+
 result = func(data, **kwargs)
 
 # Validate results (2)
 
-```text
-```text
+
 if result.isna().all():
     logger.warning(f"All NaN values in {func.__name__}")
     return pd.Series(np.nan, index=data.index)
 
 return result
 
-```text
     except Exception as e:
 
-```text
 logger.error(f"Error in {func.__name__}: {e}")
 return pd.Series(np.nan, index=data.index)
-
-```text
-```text
 
 #### 3. Memory Management Issues (2)
 
@@ -3459,33 +3155,27 @@ def memory_efficient_processing(symbols, chunk_size=50):
     
     for i in range(0, len(symbols), chunk_size):
 
-```text
 chunk = symbols[i:i+chunk_size]
 
 # Process chunk (2)
 
-```text
-```text
+
 chunk_results = process_symbol_chunk(chunk)
 results.update(chunk_results)
 
 # Force garbage collection (2)
 
-```text
-```text
+
 gc.collect()
 
 # Optional: Save intermediate results to disk (2)
 
-```text
-```text
+
 if len(results) % 100 == 0:
     save_intermediate_results(results)
 
-```text
     return results
 
-```text
 
 ---
 
@@ -3502,7 +3192,6 @@ if len(results) % 100 == 0:
 reliance_output = {
     'basic_data': {
 
-```text
 'date': '2025-06-08',
 'symbol': 'RELIANCE.NS',
 'open': 1442.50,
@@ -3512,11 +3201,9 @@ reliance_output = {
 'volume': 8750342,
 'adj_close': 1448.80
 
-```text
     },
     'technical_indicators': {
 
-```text
 'sma_20': 1428.37,
 'sma_50': 1354.07,
 'ema_20': 1425.50,
@@ -3536,27 +3223,22 @@ reliance_output = {
 'stoch_d': 72.3,
 'obv': 145230000
 
-```text
     },
     'fundamental_data': {
 
-```text
 'pe_ratio': 24.5,
 'pb_ratio': 2.8,
 'debt_to_equity': 0.35,
 'roe': 11.8,
 'market_cap': 9784500000000,  # ₹9.78 trillion
 
-```text
-```text
+
 'revenue_growth': 0.124,
 'profit_margin': 0.089
 
-```text
     },
     'market_context': {
 
-```text
 'rs_vs_nifty50': 1.08,
 'rs_vs_energy_sector': 1.15,
 'correlation_oil': 0.74,
@@ -3566,11 +3248,9 @@ reliance_output = {
 'volatility_regime': 'normal',
 'sector_rotation_score': 85
 
-```text
     },
     'patterns_signals': {
 
-```text
 'candlestick_pattern': 'none',
 'trend_direction': 'uptrend',
 'support_level': 1420.0,
@@ -3578,76 +3258,59 @@ reliance_output = {
 'pattern_strength': 'moderate',
 'breakout_probability': 0.68
 
-```text
     },
     'risk_metrics': {
 
-```text
 'var_95': -31.2,  # ₹31.20 daily VaR
 
-```text
-```text
+
 'volatility_21d': 0.0163,  # 1.63% daily
 
-```text
-```text
+
 'volatility_annual': 0.2138,  # 21.38% annual
 
-```text
-```text
+
 'sharpe_ratio': 0.68,
 'max_drawdown': -0.089,  # -8.9%
 
-```text
-```text
+
 'beta_vs_market': 1.12
 
-```text
     },
     'options_data': {
 
-```text
 'put_call_ratio': 0.95,
 'implied_volatility': 0.22,
 'max_pain': 1450,
 'call_oi_1500': 245000,
 'put_oi_1400': 187000
 
-```text
     },
     'news_sentiment': {
 
-```text
 'sentiment_score': 0.75,
 'news_count_24h': 12,
 'positive_mentions': 9,
 'negative_mentions': 1,
 'neutral_mentions': 2
 
-```text
     },
     'institutional_data': {
 
-```text
 'fii_holding': 0.234,  # 23.4%
 
-```text
-```text
+
 'dii_holding': 0.238,  # 23.8%
 
-```text
-```text
+
 'promoter_holding': 0.503,  # 50.3%
 
-```text
-```text
+
 'public_holding': 0.025   # 2.5%
 
-```text
     }
 }
 
-```text
 
 ### File Output Formats (3)
 
@@ -3666,7 +3329,6 @@ df.to_parquet(output_file, compression='snappy', index=True)
 
 # Compression ratio: 76% vs CSV (3)
 
-```text
 
 #### 2. CSV Format (Human-readable): (3)
 
@@ -3683,7 +3345,6 @@ df.to_csv(output_file, index=True, float_format='%.4f')
 
 # Human-readable, compatible with Excel (3)
 
-```text
 
 #### 3. JSON Format (API-friendly): (3)
 
@@ -3698,7 +3359,6 @@ df.to_json(output_file, orient='records', date_format='iso', indent=2)
 
 # Easy integration with JavaScript frontends (3)
 
-```text
 
 ### Data Quality Metrics (3)
 
@@ -3720,7 +3380,6 @@ pipeline_summary = {
     'error_log_entries': 12
 }
 
-```text
 
 ### Column Structure Reference (3)
 
@@ -3741,7 +3400,6 @@ column_structure = {
     'options': ['put_call_ratio', 'implied_volatility', 'max_pain']
 }
 
-```text
 
 ### Real-Time Data Streaming (3)
 
@@ -3771,29 +3429,24 @@ live_data_stream = {
 
     'signals': {
 
-```text
 'rsi_signal': 'neutral',
 'macd_signal': 'bearish_cross',
 'bb_signal': 'upper_resistance',
 'volume_signal': 'high',
 'overall_signal': 'hold'
 
-```text
     },
     'intraday_levels': {
 
-```text
 'pivot': 1448.80,
 'resistance_1': 1465.20,
 'support_1': 1432.40,
 'day_high': 1456.70,
 'day_low': 1445.50
 
-```text
     }
 }
 
-```text
 
 ---
 
@@ -3820,17 +3473,14 @@ def robust_download_with_fallback(symbol, max_retries=5):
     """
     sources = [
 
-```text
 lambda: yf.download(symbol),
 lambda: download_from_nse_direct(symbol),
 lambda: load_from_cache(symbol)
 
-```text
     ]
     
     for attempt, source_func in enumerate(sources):
 
-```text
 try:
     data = source_func()
     if validate_data_quality(data):
@@ -3839,10 +3489,8 @@ except Exception as e:
     logger.warning(f"Source {attempt+1} failed for {symbol}: {e}")
     continue
 
-```text
     raise Exception(f"All data sources failed for {symbol}")
 
-```text
 
 #### 2. Indicator Calculation Errors (3)
 
@@ -3866,40 +3514,31 @@ def safe_indicator_calculation(func, data, **kwargs):
     """
     try:
 
-```text
 # Check minimum data requirements (3)
 
-```text
-```text
+
 min_periods = kwargs.get('min_periods', 20)
 if len(data) < min_periods:
     return pd.Series(np.nan, index=data.index)
 
 # Execute calculation with error handling (3)
 
-```text
-```text
+
 result = func(data, **kwargs)
 
 # Validate results (3)
 
-```text
-```text
+
 if result.isna().all():
     logger.warning(f"All NaN values in {func.__name__}")
     return pd.Series(np.nan, index=data.index)
 
 return result
 
-```text
     except Exception as e:
 
-```text
 logger.error(f"Error in {func.__name__}: {e}")
 return pd.Series(np.nan, index=data.index)
-
-```text
-```text
 
 #### 3. Memory Management Issues (3)
 
@@ -3925,33 +3564,27 @@ def memory_efficient_processing(symbols, chunk_size=50):
     
     for i in range(0, len(symbols), chunk_size):
 
-```text
 chunk = symbols[i:i+chunk_size]
 
 # Process chunk (3)
 
-```text
-```text
+
 chunk_results = process_symbol_chunk(chunk)
 results.update(chunk_results)
 
 # Force garbage collection (3)
 
-```text
-```text
+
 gc.collect()
 
 # Optional: Save intermediate results to disk (3)
 
-```text
-```text
+
 if len(results) % 100 == 0:
     save_intermediate_results(results)
 
-```text
     return results
 
-```text
 
 ---
 
@@ -3968,7 +3601,6 @@ if len(results) % 100 == 0:
 reliance_output = {
     'basic_data': {
 
-```text
 'date': '2025-06-08',
 'symbol': 'RELIANCE.NS',
 'open': 1442.50,
@@ -3978,11 +3610,9 @@ reliance_output = {
 'volume': 8750342,
 'adj_close': 1448.80
 
-```text
     },
     'technical_indicators': {
 
-```text
 'sma_20': 1428.37,
 'sma_50': 1354.07,
 'ema_20': 1425.50,
@@ -4002,27 +3632,22 @@ reliance_output = {
 'stoch_d': 72.3,
 'obv': 145230000
 
-```text
     },
     'fundamental_data': {
 
-```text
 'pe_ratio': 24.5,
 'pb_ratio': 2.8,
 'debt_to_equity': 0.35,
 'roe': 11.8,
 'market_cap': 9784500000000,  # ₹9.78 trillion
 
-```text
-```text
+
 'revenue_growth': 0.124,
 'profit_margin': 0.089
 
-```text
     },
     'market_context': {
 
-```text
 'rs_vs_nifty50': 1.08,
 'rs_vs_energy_sector': 1.15,
 'correlation_oil': 0.74,
@@ -4032,11 +3657,9 @@ reliance_output = {
 'volatility_regime': 'normal',
 'sector_rotation_score': 85
 
-```text
     },
     'patterns_signals': {
 
-```text
 'candlestick_pattern': 'none',
 'trend_direction': 'uptrend',
 'support_level': 1420.0,
@@ -4044,76 +3667,59 @@ reliance_output = {
 'pattern_strength': 'moderate',
 'breakout_probability': 0.68
 
-```text
     },
     'risk_metrics': {
 
-```text
 'var_95': -31.2,  # ₹31.20 daily VaR
 
-```text
-```text
+
 'volatility_21d': 0.0163,  # 1.63% daily
 
-```text
-```text
+
 'volatility_annual': 0.2138,  # 21.38% annual
 
-```text
-```text
+
 'sharpe_ratio': 0.68,
 'max_drawdown': -0.089,  # -8.9%
 
-```text
-```text
+
 'beta_vs_market': 1.12
 
-```text
     },
     'options_data': {
 
-```text
 'put_call_ratio': 0.95,
 'implied_volatility': 0.22,
 'max_pain': 1450,
 'call_oi_1500': 245000,
 'put_oi_1400': 187000
 
-```text
     },
     'news_sentiment': {
 
-```text
 'sentiment_score': 0.75,
 'news_count_24h': 12,
 'positive_mentions': 9,
 'negative_mentions': 1,
 'neutral_mentions': 2
 
-```text
     },
     'institutional_data': {
 
-```text
 'fii_holding': 0.234,  # 23.4%
 
-```text
-```text
+
 'dii_holding': 0.238,  # 23.8%
 
-```text
-```text
+
 'promoter_holding': 0.503,  # 50.3%
 
-```text
-```text
+
 'public_holding': 0.025   # 2.5%
 
-```text
     }
 }
 
-```text
 
 ### File Output Formats (4)
 
@@ -4132,7 +3738,6 @@ df.to_parquet(output_file, compression='snappy', index=True)
 
 # Compression ratio: 76% vs CSV (4)
 
-```text
 
 #### 2. CSV Format (Human-readable): (4)
 
@@ -4149,7 +3754,6 @@ df.to_csv(output_file, index=True, float_format='%.4f')
 
 # Human-readable, compatible with Excel (4)
 
-```text
 
 #### 3. JSON Format (API-friendly): (4)
 
@@ -4164,7 +3768,6 @@ df.to_json(output_file, orient='records', date_format='iso', indent=2)
 
 # Easy integration with JavaScript frontends (4)
 
-```text
 
 ### Data Quality Metrics (4)
 
@@ -4186,7 +3789,6 @@ pipeline_summary = {
     'error_log_entries': 12
 }
 
-```text
 
 ### Column Structure Reference (4)
 
@@ -4207,7 +3809,6 @@ column_structure = {
     'options': ['put_call_ratio', 'implied_volatility', 'max_pain']
 }
 
-```text
 
 ### Real-Time Data Streaming (4)
 
@@ -4237,29 +3838,24 @@ live_data_stream = {
 
     'signals': {
 
-```text
 'rsi_signal': 'neutral',
 'macd_signal': 'bearish_cross',
 'bb_signal': 'upper_resistance',
 'volume_signal': 'high',
 'overall_signal': 'hold'
 
-```text
     },
     'intraday_levels': {
 
-```text
 'pivot': 1448.80,
 'resistance_1': 1465.20,
 'support_1': 1432.40,
 'day_high': 1456.70,
 'day_low': 1445.50
 
-```text
     }
 }
 
-```text
 
 ---
 
@@ -4286,17 +3882,14 @@ def robust_download_with_fallback(symbol, max_retries=5):
     """
     sources = [
 
-```text
 lambda: yf.download(symbol),
 lambda: download_from_nse_direct(symbol),
 lambda: load_from_cache(symbol)
 
-```text
     ]
     
     for attempt, source_func in enumerate(sources):
 
-```text
 try:
     data = source_func()
     if validate_data_quality(data):
@@ -4305,10 +3898,8 @@ except Exception as e:
     logger.warning(f"Source {attempt+1} failed for {symbol}: {e}")
     continue
 
-```text
     raise Exception(f"All data sources failed for {symbol}")
 
-```text
 
 #### 2. Indicator Calculation Errors (4)
 
@@ -4332,40 +3923,31 @@ def safe_indicator_calculation(func, data, **kwargs):
     """
     try:
 
-```text
 # Check minimum data requirements (4)
 
-```text
-```text
+
 min_periods = kwargs.get('min_periods', 20)
 if len(data) < min_periods:
     return pd.Series(np.nan, index=data.index)
 
 # Execute calculation with error handling (4)
 
-```text
-```text
+
 result = func(data, **kwargs)
 
 # Validate results (4)
 
-```text
-```text
+
 if result.isna().all():
     logger.warning(f"All NaN values in {func.__name__}")
     return pd.Series(np.nan, index=data.index)
 
 return result
 
-```text
     except Exception as e:
 
-```text
 logger.error(f"Error in {func.__name__}: {e}")
 return pd.Series(np.nan, index=data.index)
-
-```text
-```text
 
 #### 3. Memory Management Issues (4)
 
@@ -4391,32 +3973,26 @@ def memory_efficient_processing(symbols, chunk_size=50):
     
     for i in range(0, len(symbols), chunk_size):
 
-```text
 chunk = symbols[i:i+chunk_size]
 
 # Process chunk (4)
 
-```text
-```text
+
 chunk_results = process_symbol_chunk(chunk)
 results.update(chunk_results)
 
 # Force garbage collection (4)
 
-```text
-```text
+
 gc.collect()
 
 # Optional: Save intermediate results to disk (4)
 
-```text
-```text
+
 if len(results) % 100 == 0:
     save_intermediate_results(results)
 
-```text
     return results
 
-```text
 
 ---
