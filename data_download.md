@@ -250,45 +250,45 @@ Date: 2025-06-08, Open: 1430.00, High: 1465.00, Low: 1425.00, Close: 1448.80, Vo
 
 1. **Simple Moving Average (SMA)**
 
-- **Purpose**: Smooths out price data to identify the direction of the trend. Longer SMAs reflect long-term trends, shorter SMAs reflect short-term trends.
+   - **Purpose**: Smooths out price data to identify the direction of the trend. Longer SMAs reflect long-term trends, shorter SMAs reflect short-term trends.
 
-- **Formula**: Sum of closing prices over N periods / N.
+   - **Formula**: Sum of closing prices over N periods / N.
 
-- **Interpretation**: Price above SMA is often seen as bullish, below as bearish. Crossovers of different SMAs (e.g., 20-day SMA crossing above 50-day SMA - a "golden cross") can signal trend changes.
+   - **Interpretation**: Price above SMA is often seen as bullish, below as bearish. Crossovers of different SMAs (e.g., 20-day SMA crossing above 50-day SMA - a "golden cross") can signal trend changes.
 
-- **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS closed at ₹1,448.80. Its 20-day SMA was ₹1,428.37 and 50-day SMA was ₹1,354.07. Since the price is above both SMAs and the 20-day SMA is above the 50-day SMA, this suggests a bullish trend in the short to medium term."
+   - **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS closed at ₹1,448.80. Its 20-day SMA was ₹1,428.37 and 50-day SMA was ₹1,354.07. Since the price is above both SMAs and the 20-day SMA is above the 50-day SMA, this suggests a bullish trend in the short to medium term."
 
-- **Visualization**: A plot would show the closing price line with the 20-day and 50-day SMA lines overlaid. Crossovers and the price's position relative to the SMAs would be key visual cues.
+   - **Visualization**: A plot would show the closing price line with the 20-day and 50-day SMA lines overlaid. Crossovers and the price's position relative to the SMAs would be key visual cues.
 
-1. **Exponential Moving Average (EMA)**
+2. **Exponential Moving Average (EMA)**
 
-- **Purpose**: Similar to SMA but gives more weight to recent prices, making it more responsive to new information.
+   - **Purpose**: Similar to SMA but gives more weight to recent prices, making it more responsive to new information.
 
-- **Formula**: (Close - Previous EMA) * Multiplier + Previous EMA, where Multiplier = 2 / (N + 1).
+   - **Formula**: (Close - Previous EMA) * Multiplier + Previous EMA, where Multiplier = 2 / (N + 1).
 
-- **Interpretation**: Used like SMAs for trend identification and crossover signals, but reacts faster.
+   - **Interpretation**: Used like SMAs for trend identification and crossover signals, but reacts faster.
 
-- **RELIANCE.NS Example**: "RELIANCE.NS's 20-day EMA on June 8, 2025 is approximately ₹1,425.50, slightly different from its SMA due to the exponential weighting, offering a quicker reflection of recent price action."
+   - **RELIANCE.NS Example**: "RELIANCE.NS's 20-day EMA on June 8, 2025 is approximately ₹1,425.50, slightly different from its SMA due to the exponential weighting, offering a quicker reflection of recent price action."
 
-1. **Relative Strength Index (RSI)**
+3. **Relative Strength Index (RSI)**
 
-- **Purpose**: A momentum oscillator that measures the speed and change of price movements. It indicates overbought or oversold conditions.
+   - **Purpose**: A momentum oscillator that measures the speed and change of price movements. It indicates overbought or oversold conditions.
 
-- **Formula**: `100 - (100 / (1 + RS))`, where RS = (Average Gain over N periods) / (Average Loss over N periods). Typically N=14.
+   - **Formula**: `100 - (100 / (1 + RS))`, where RS = (Average Gain over N periods) / (Average Loss over N periods). Typically N=14.
 
-- **Interpretation**: Values range from 0 to 100.
+   - **Interpretation**: Values range from 0 to 100.
 
-- RSI > 70: Often considered overbought (potential for a price pullback).
+     - RSI > 70: Often considered overbought (potential for a price pullback).
 
-- RSI < 30: Often considered oversold (potential for a price bounce).
+     - RSI < 30: Often considered oversold (potential for a price bounce).
 
-- Divergences: Bullish divergence (price makes lower low, RSI makes higher low) or bearish divergence (price makes higher high, RSI makes lower high) can signal trend reversals.
+     - Divergences: Bullish divergence (price makes lower low, RSI makes higher low) or bearish divergence (price makes higher high, RSI makes lower high) can signal trend reversals.
 
-- **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS had a 14-day RSI of 62.72. This value is in neutral territory, suggesting moderate momentum that is neither overbought nor oversold. The stock shows healthy upward momentum that is not yet extreme."
+   - **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS had a 14-day RSI of 62.72. This value is in neutral territory, suggesting moderate momentum that is neither overbought nor oversold. The stock shows healthy upward momentum that is not yet extreme."
 
-- **Caveat**: In strong trends, RSI can remain in overbought/oversold territory for extended periods.
+   - **Caveat**: In strong trends, RSI can remain in overbought/oversold territory for extended periods.
 
-1. **Moving Average Convergence Divergence (MACD)**
+4. **Moving Average Convergence Divergence (MACD)**
 
 - **Purpose**: A trend-following momentum indicator that shows the relationship between two EMAs of a security’s price (typically 12-period EMA and 26-period EMA).
 
@@ -296,109 +296,109 @@ Date: 2025-06-08, Open: 1430.00, High: 1465.00, Low: 1425.00, Close: 1448.80, Vo
 
 - **Interpretation**:
 
-- Crossovers: MACD Line crossing above Signal Line is bullish; below is bearish.
+   - Crossovers: MACD Line crossing above Signal Line is bullish; below is bearish.
 
-- Zero Line Crossover: MACD Line crossing above zero is bullish; below is bearish.
+   - Zero Line Crossover: MACD Line crossing above zero is bullish; below is bearish.
 
-- Divergences: Similar to RSI, divergences between MACD and price can signal trend changes.
+   - Divergences: Similar to RSI, divergences between MACD and price can signal trend changes.
 
 - **RELIANCE.NS Example**: "For RELIANCE.NS on June 8, 2025, the MACD line was 19.57 and the Signal line was 22.51. With the MACD line below the signal line, this indicates bearish momentum in the short term despite the overall uptrend."
 
-1. **Bollinger Bands (BBands)**
+5. **Bollinger Bands (BBands)**
 
-- **Purpose**: Measure market volatility and identify overbought/oversold conditions relative to a moving average.
+   - **Purpose**: Measure market volatility and identify overbought/oversold conditions relative to a moving average.
 
-- **Formula**:
+   - **Formula**:
 
-- Middle Band: N-period SMA (typically 20-day).
+     - Middle Band: N-period SMA (typically 20-day).
 
-- Upper Band: Middle Band + (K * N-period Standard Deviation of Price) (typically K=2).
+     - Upper Band: Middle Band + (K * N-period Standard Deviation of Price) (typically K=2).
 
-- Lower Band: Middle Band - (K * N-period Standard Deviation of Price).
+     - Lower Band: Middle Band - (K * N-period Standard Deviation of Price).
 
-- **Interpretation**:
+   - **Interpretation**:
 
-- Price touching Upper Band: Potentially overbought.
+     - Price touching Upper Band: Potentially overbought.
 
-- Price touching Lower Band: Potentially oversold.
+     - Price touching Lower Band: Potentially oversold.
 
-- Band Squeeze: Low volatility, often precedes a significant price move.
+     - Band Squeeze: Low volatility, often precedes a significant price move.
 
-- Band Expansion: High volatility.
+     - Band Expansion: High volatility.
 
-- **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS was trading at ₹1,448.80, very close to its Upper Bollinger Band at ₹1,457.54, suggesting the stock is approaching short-term resistance or indicating strong momentum continuation."
+   - **RELIANCE.NS Example**: "On June 8, 2025, RELIANCE.NS was trading at ₹1,448.80, very close to its Upper Bollinger Band at ₹1,457.54, suggesting the stock is approaching short-term resistance or indicating strong momentum continuation."
 
-1. **Average True Range (ATR)**
+6. **Average True Range (ATR)**
 
-- **Purpose**: Measures market volatility by decomposing the entire range of an asset price for that period.
+   - **Purpose**: Measures market volatility by decomposing the entire range of an asset price for that period.
 
-- **Formula**: Typically a 14-day smoothed moving average of True Range values. True Range = max[(High - Low), abs(High - Previous Close), abs(Low - Previous Close)].
+   - **Formula**: Typically a 14-day smoothed moving average of True Range values. True Range = max[(High - Low), abs(High - Previous Close), abs(Low - Previous Close)].
 
-- **Interpretation**: Higher ATR indicates higher volatility; lower ATR indicates lower volatility. Not directional. Often used for setting stop-loss levels or position sizing.
+   - **Interpretation**: Higher ATR indicates higher volatility; lower ATR indicates lower volatility. Not directional. Often used for setting stop-loss levels or position sizing.
 
-- **RELIANCE.NS Example**: "An ATR of ₹23.58 for RELIANCE.NS on June 8, 2025 means the stock has an average daily price range of roughly ₹23.58 over the last 14 days, indicating moderate volatility suitable for position sizing calculations."
+   - **RELIANCE.NS Example**: "An ATR of ₹23.58 for RELIANCE.NS on June 8, 2025 means the stock has an average daily price range of roughly ₹23.58 over the last 14 days, indicating moderate volatility suitable for position sizing calculations."
 
-1. **Commodity Channel Index (CCI)**
+7. **Commodity Channel Index (CCI)**
 
-- **Purpose**: A momentum-based oscillator used to help determine when an investment vehicle is reaching a condition of being overbought or oversold.
+   - **Purpose**: A momentum-based oscillator used to help determine when an investment vehicle is reaching a condition of being overbought or oversold.
 
-- **Formula**: (Typical Price - N-period SMA of Typical Price) / (0.015 * N-period Mean Deviation of Typical Price). Typical Price = (High + Low + Close) / 3.
+   - **Formula**: (Typical Price - N-period SMA of Typical Price) / (0.015 * N-period Mean Deviation of Typical Price). Typical Price = (High + Low + Close) / 3.
 
-- **Interpretation**: Values above +100 suggest overbought; below -100 suggest oversold.
+   - **Interpretation**: Values above +100 suggest overbought; below -100 suggest oversold.
 
-- **RELIANCE.NS Example**: "A CCI reading of approximately +85 for RELIANCE.NS would indicate near-overbought conditions but not extreme, suggesting continued upward pressure."
+   - **RELIANCE.NS Example**: "A CCI reading of approximately +85 for RELIANCE.NS would indicate near-overbought conditions but not extreme, suggesting continued upward pressure."
 
-1. **Average Directional Index (ADX), Plus Directional Indicator (+DI), Minus Directional Indicator (-DI)**
+8. **Average Directional Index (ADX), Plus Directional Indicator (+DI), Minus Directional Indicator (-DI)**
 
-- **Purpose**: ADX measures trend strength (not direction). +DI and -DI measure trend direction.
+   - **Purpose**: ADX measures trend strength (not direction). +DI and -DI measure trend direction.
 
-- **Interpretation**:
+   - **Interpretation**:
 
-- ADX > 25: Strong trend (either up or down). ADX < 20: Weak or non-trending market.
+     - ADX > 25: Strong trend (either up or down). ADX < 20: Weak or non-trending market.
 
-- +DI above -DI: Bullish trend. -DI above +DI: Bearish trend.
+     - +DI above -DI: Bullish trend. -DI above +DI: Bearish trend.
 
-- Crossovers of +DI and -DI can signal trend changes, confirmed by ADX strength.
+     - Crossovers of +DI and -DI can signal trend changes, confirmed by ADX strength.
 
-- **RELIANCE.NS Example**: "RELIANCE.NS has an ADX of 24.18, indicating a moderately strong trend. With the +DI likely above -DI given the uptrend, this confirms the bullish direction with decent momentum."
+   - **RELIANCE.NS Example**: "RELIANCE.NS has an ADX of 24.18, indicating a moderately strong trend. With the +DI likely above -DI given the uptrend, this confirms the bullish direction with decent momentum."
 
-1. **Money Flow Index (MFI)**
+9. **Money Flow Index (MFI)**
 
-- **Purpose**: A momentum indicator that incorporates volume and price data. It's also known as volume-weighted RSI.
+   - **Purpose**: A momentum indicator that incorporates volume and price data. It's also known as volume-weighted RSI.
 
-- **Interpretation**: Similar to RSI for overbought (>80) / oversold (<20) conditions and divergences.
+   - **Interpretation**: Similar to RSI for overbought (>80) / oversold (<20) conditions and divergences.
 
-- **RELIANCE.NS Example**: "An MFI of approximately 68 for RELIANCE.NS suggests significant buying pressure, indicating institutional and retail interest remains strong."
+      - **RELIANCE.NS Example**: "An MFI of approximately 68 for RELIANCE.NS suggests significant buying pressure, indicating institutional and retail interest remains strong."
 
-1. **On-Balance Volume (OBV)**
+10. **On-Balance Volume (OBV)**
 
-- **Purpose**: A momentum indicator that uses volume flow to predict changes in stock price.
+    - **Purpose**: A momentum indicator that uses volume flow to predict changes in stock price.
 
-- **Interpretation**: Rising OBV reflects positive volume pressure that can lead to higher prices. Falling OBV signals negative volume pressure. Divergences between OBV and price are noteworthy.
+    - **Interpretation**: Rising OBV reflects positive volume pressure that can lead to higher prices. Falling OBV signals negative volume pressure. Divergences between OBV and price are noteworthy.
 
-- **RELIANCE.NS Example**: "RELIANCE.NS price is making new highs and its OBV has also been generally rising over the trend period, confirming the uptrend has strong volume support."
+    - **RELIANCE.NS Example**: "RELIANCE.NS price is making new highs and its OBV has also been generally rising over the trend period, confirming the uptrend has strong volume support."
 
-1. **Rate of Change (ROC)**
+11. **Rate of Change (ROC)**
 
-- **Purpose**: A momentum oscillator that measures the percentage change in price between the current price and the price N periods ago.
+    - **Purpose**: A momentum oscillator that measures the percentage change in price between the current price and the price N periods ago.
 
-- **Interpretation**: Positive ROC indicates upward momentum; negative ROC indicates downward momentum. Zero line crossovers can be used as signals.
+    - **Interpretation**: Positive ROC indicates upward momentum; negative ROC indicates downward momentum. Zero line crossovers can be used as signals.
 
-- **RELIANCE.NS Example**: "A 10-day ROC of approximately 1.8% for RELIANCE.NS means its price has increased by 1.8% over the last 10 trading days, showing positive but moderate momentum."
+    - **RELIANCE.NS Example**: "A 10-day ROC of approximately 1.8% for RELIANCE.NS means its price has increased by 1.8% over the last 10 trading days, showing positive but moderate momentum."
 
-- **Candlestick Patterns (Identified using `talib` functions like `talib.CDLDOJI`, `talib.CDLHAMMER`, etc.)**:
+12. **Candlestick Patterns (Identified using `talib` functions like `talib.CDLDOJI`, `talib.CDLHAMMER`, etc.)**:
 
-- **Purpose**: These are short-term patterns (1-3 candles) that can indicate potential reversals or continuations. The `download_nifty500_data.py` script calculates many of these.
+    - **Purpose**: These are short-term patterns (1-3 candles) that can indicate potential reversals or continuations. The `download_nifty500_data.py` script calculates many of these.
 
-- **Examples**:
+    - **Examples**:
 
-- **Doji**: Indicates indecision. A day where open and close are very close.
+      - **Doji**: Indicates indecision. A day where open and close are very close.
 
-- *RELIANCE.NS Example*: "A Doji pattern on June 1, 2025 for RELIANCE.NS at ₹1,413.70, after a strong uptrend, signaled indecision and potential pause in the buying momentum."
+        *RELIANCE.NS Example*: "A Doji pattern on June 1, 2025 for RELIANCE.NS at ₹1,413.70, after a strong uptrend, signaled indecision and potential pause in the buying momentum."
 
-- **Hammer**: Bullish reversal pattern typically found at the bottom of a downtrend. Small body, long lower shadow, little to no upper shadow.
+      - **Hammer**: Bullish reversal pattern typically found at the bottom of a downtrend. Small body, long lower shadow, little to no upper shadow.
 
-- *RELIANCE.NS Example*: "Recent Hammer patterns in RELIANCE.NS were observed on May 5, 2025 at ₹1,420.90 and March 10, 2025 at ₹1,247.30, both suggesting potential reversal points after declines."
+        *RELIANCE.NS Example*: "Recent Hammer patterns in RELIANCE.NS were observed on May 5, 2025 at ₹1,420.90 and March 10, 2025 at ₹1,247.30, both suggesting potential reversal points after declines."
 
 - **Engulfing (Bullish/Bearish)**: A two-candle reversal pattern. A Bullish Engulfing has a small bearish candle followed by a large bullish candle that engulfs the prior one.
 
@@ -565,13 +565,11 @@ Ideally, this would be sourced from a dynamic, up-to-date database or API.
 
 - **Process**:
 
-1. Fetches available option expiry dates using `ticker.options`.
-1. For each expiry (or a selection of them, e.g., near-term expiries), it fetches the call and put option chains using `ticker.option_chain(expiry_date)`.
-
-1. Extracts data like `impliedVolatility`, `openInterest`, `volume`, `lastPrice` for each option contract.
-1. Calculates aggregate metrics like Put-Call Ratio and identifies strikes with high Open Interest.
-
-1. The `_calculate_max_pain` helper function attempts to find the strike price at which the maximum number of option holders (both call and put buyers) would lose money if the stock expires at that price.
+  1. Fetches available option expiry dates using `ticker.options`.
+  2. For each expiry (or a selection of them, e.g., near-term expiries), it fetches the call and put option chains using `ticker.option_chain(expiry_date)`.
+  3. Extracts data like `impliedVolatility`, `openInterest`, `volume`, `lastPrice` for each option contract.
+  4. Calculates aggregate metrics like Put-Call Ratio and identifies strikes with high Open Interest.
+  5. The `_calculate_max_pain` helper function attempts to find the strike price at which the maximum number of option holders (both call and put buyers) would lose money if the stock expires at that price.
 
 - **Key Metrics**:
 
@@ -655,20 +653,17 @@ Beyond individual stock data, the pipeline also gathers information to understan
 
 - **Process**: This function requires price data from a significant portion of the market (e.g., all Nifty 500 stocks).
 
-1. For each stock in the universe, determine if it advanced or declined on a given day.
-1. Calculate metrics like:
+  1. For each stock in the universe, determine if it advanced or declined on a given day.
+  2. Calculate metrics like:
 
-- **Advance-Decline Line (A/D Line)**: A cumulative sum of (Advancing Stocks - Declining Stocks).
-
-- **New Highs-New Lows (NH-NL)**: Number of stocks making 52-week highs minus those making 52-week lows.
-
-- **McClellan Oscillator/Summation Index**: More complex breadth indicators based on smoothed A/D data.
+     - **Advance-Decline Line (A/D Line)**: A cumulative sum of (Advancing Stocks - Declining Stocks).
+     - **New Highs-New Lows (NH-NL)**: Number of stocks making 52-week highs minus those making 52-week lows.
+     - **McClellan Oscillator/Summation Index**: More complex breadth indicators based on smoothed A/D data.
 
 - **Significance**:
 
-- **Confirmation**: If the market index is rising and the A/D Line is also rising, it confirms the rally's strength.
-
-- **Divergence**: If the index is rising but the A/D Line is falling (negative divergence), it can be a warning sign that the rally is losing steam and is not supported by broad market participation.
+  - **Confirmation**: If the market index is rising and the A/D Line is also rising, it confirms the rally's strength.
+  - **Divergence**: If the index is rising but the A/D Line is falling (negative divergence), it can be a warning sign that the rally is losing steam and is not supported by broad market participation.
 
 - **Example**: "On June 6, 2025, while the Nifty 50 index rose by 89 points (+0.37%), the Nifty 500 Advance-Decline Line also rose with 312 stocks advancing vs 188 declining, indicating broad market participation and confirming the rally's health. RELIANCE.NS participated in this broad-based move, gaining ₹8.45 (+0.59%) to close at ₹1,448.80."
 
@@ -678,20 +673,17 @@ Beyond individual stock data, the pipeline also gathers information to understan
 
 - **Process**:
 
-1. Fetches historical data for the assets defined in `GLOBAL_INDICES` and `COMMODITIES_BONDS`.
-1. Calculates rolling correlation coefficients (e.g., using `.rolling(window=N).corr()`) between:
+  1. Fetches historical data for the assets defined in `GLOBAL_INDICES` and `COMMODITIES_BONDS`.
+  2. Calculates rolling correlation coefficients (e.g., using `.rolling(window=N).corr()`) between:
 
-- Nifty 50 and these global assets.
-
-- Individual stocks (like RELIANCE.NS) and selected global assets.
+     - Nifty 50 and these global assets.
+     - Individual stocks (like RELIANCE.NS) and selected global assets.
 
 - **Significance**:
 
-- **Risk-On/Risk-Off**: Correlations can indicate prevailing market sentiment. For example, a negative correlation between equities and gold might strengthen during risk-off periods (gold seen as a safe haven).
-
-- **Economic Linkages**: Correlation with oil prices can be important for oil-importing countries like India and for specific sectors.
-
-- **Global Influence**: Correlation with major global indices like the S&P 500 shows how much Indian markets are influenced by global trends.
+  - **Risk-On/Risk-Off**: Correlations can indicate prevailing market sentiment. For example, a negative correlation between equities and gold might strengthen during risk-off periods (gold seen as a safe haven).
+  - **Economic Linkages**: Correlation with oil prices can be important for oil-importing countries like India and for specific sectors.
+  - **Global Influence**: Correlation with major global indices like the S&P 500 shows how much Indian markets are influenced by global trends.
 
 - **RELIANCE.NS Example**: "The 60-day rolling correlation between RELIANCE.NS and Brent Crude Oil is currently +0.74, indicating a strong positive relationship as expected for an Energy sector stock. This suggests RELIANCE.NS moves closely with oil prices. Its correlation with the S&P 500 is +0.58, indicating moderate co-movement with US markets, while its correlation with USD/INR is -0.32, showing it benefits from rupee strength."
 
