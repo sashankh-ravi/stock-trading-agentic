@@ -2009,60 +2009,45 @@ def calculate_comprehensive_atr(data, period=14):
     Advanced ATR calculation with trading applications
     
     Features:
-
-- Standard ATR calculation
-
-- Volatility percentile ranking
-
-- Position sizing recommendations
-
-- Stop-loss optimization
-
-- Market regime classification
+    - Standard ATR calculation
+    - Volatility percentile ranking
+    - Position sizing recommendations
+    - Stop-loss optimization
+    - Market regime classification
     """
     high = data['high']
     low = data['low']
     close = data['close']
     
     # True Range components
-
     high_low = high - low
     high_close = np.abs(high - close.shift(1))
     low_close = np.abs(low - close.shift(1))
     
     # True Range calculation
-
     true_range = np.maximum(high_low, np.maximum(high_close, low_close))
     
     # ATR using Wilder's smoothing
-
     atr = true_range.ewm(span=period, adjust=False).mean()
     
     # ATR as percentage of price
-
     atr_percentage = (atr / close) * 100
     
     # Volatility percentile (for regime identification)
-
     vol_percentile = atr.rolling(252).rank(pct=True) * 100
     
     # Regime classification
-
     regime = np.where(
-
-vol_percentile > 80, 'high_volatility',
-np.where(vol_percentile < 20, 'low_volatility', 'normal_volatility')
-
+        vol_percentile > 80, 'high_volatility',
+        np.where(vol_percentile < 20, 'low_volatility', 'normal_volatility')
     )
     
     return {
-
-'atr': atr,
-'true_range': true_range,
-'atr_percentage': atr_percentage,
-'volatility_percentile': vol_percentile,
-'regime': regime
-
+        'atr': atr,
+        'true_range': true_range,
+        'atr_percentage': atr_percentage,
+        'volatility_percentile': vol_percentile,
+        'regime': regime
     }
 
 
@@ -2070,7 +2055,7 @@ np.where(vol_percentile < 20, 'low_volatility', 'normal_volatility')
 
 #### On-Balance Volume (OBV)
 
-#### Mathematical Definition: (5)
+#### Mathematical Definition:
 
 ```python
 If Close > Previous Close: OBV = Previous OBV + Volume
@@ -2078,6 +2063,7 @@ If Close < Previous Close: OBV = Previous OBV - Volume
 If Close = Previous Close: OBV = Previous OBV
 
 Initial condition: OBV(0) = 0
+```
 
 
 #### Advanced OBV Analysis System
@@ -2088,16 +2074,12 @@ def calculate_comprehensive_obv(data):
     Complete OBV analysis with institutional flow detection
     
     Features:
-
-- Standard OBV calculation
-
-- OBV trend analysis
-
-- Volume flow momentum
-
-- Accumulation/distribution detection
-
-- Divergence analysis with price
+    - Standard OBV calculation
+    - OBV trend analysis
+    - Volume flow momentum
+    - Accumulation/distribution detection
+    - Divergence analysis with price
+    """
 
 - Institutional activity indicators
     """
@@ -2208,16 +2190,11 @@ def calculate_comprehensive_vwap(data, include_overnight=False):
     Complete VWAP analysis for institutional trading
     
     Features:
-
-- Standard VWAP calculation
-
-- Volume-weighted bands
-
-- VWAP slope analysis
-
-- Institutional order flow detection
-
-- Support/resistance levels
+    - Standard VWAP calculation
+    - Volume-weighted bands
+    - VWAP slope analysis
+    - Institutional order flow detection
+    - Support/resistance levels
     """
     high = data['high']
     low = data['low']
@@ -2225,31 +2202,26 @@ def calculate_comprehensive_vwap(data, include_overnight=False):
     volume = data['volume']
     
     # Typical price for VWAP
-
     typical_price = (high + low + close) / 3
     
     # Daily VWAP calculation (resets each day)
-
     data_with_date = data.copy()
     data_with_date['date'] = data_with_date.index.date
     
     # Group by date and calculate cumulative values
-
     vwap_data = []
     
     for date, group in data_with_date.groupby('date'):
-
-group = group.copy()
-cumulative_volume = group['volume'].cumsum()
-cumulative_pv = (typical_price.loc[group.index] * group['volume']).cumsum()
-group['vwap'] = cumulative_pv / cumulative_volume
-vwap_data.append(group)
+        group = group.copy()
+        cumulative_volume = group['volume'].cumsum()
+        cumulative_pv = (typical_price.loc[group.index] * group['volume']).cumsum()
+        group['vwap'] = cumulative_pv / cumulative_volume
+        vwap_data.append(group)
 
     result_df = pd.concat(vwap_data)
     vwap = result_df['vwap']
     
     # VWAP bands (standard deviation bands)
-
     vwap_std = calculate_vwap_standard_deviation(typical_price, volume, vwap)
     vwap_upper_1 = vwap + vwap_std
     vwap_lower_1 = vwap - vwap_std
@@ -2257,35 +2229,29 @@ vwap_data.append(group)
     vwap_lower_2 = vwap - (vwap_std * 2)
     
     # VWAP slope (institutional direction)
-
     vwap_slope = vwap.diff(5)
     vwap_direction = np.where(vwap_slope > 0, 'bullish', 'bearish')
     
     # Price position relative to VWAP
-
     price_vs_vwap = ((close - vwap) / vwap) * 100
     
     # Volume profile analysis
-
     above_vwap_volume = np.where(close > vwap, volume, 0)
     below_vwap_volume = np.where(close < vwap, volume, 0)
     volume_imbalance = (above_vwap_volume.rolling(20).sum() - 
-
-               below_vwap_volume.rolling(20).sum()) / volume.rolling(20).sum()
+                       below_vwap_volume.rolling(20).sum()) / volume.rolling(20).sum()
 
     return {
-
-'vwap': vwap,
-'vwap_upper_1': vwap_upper_1,
-'vwap_lower_1': vwap_lower_1,
-'vwap_upper_2': vwap_upper_2,
-'vwap_lower_2': vwap_lower_2,
-'vwap_slope': vwap_slope,
-'vwap_direction': vwap_direction,
-'price_vs_vwap': price_vs_vwap,
-'volume_imbalance': volume_imbalance,
-'typical_price': typical_price
-
+        'vwap': vwap,
+        'vwap_upper_1': vwap_upper_1,
+        'vwap_lower_1': vwap_lower_1,
+        'vwap_upper_2': vwap_upper_2,
+        'vwap_lower_2': vwap_lower_2,
+        'vwap_slope': vwap_slope,
+        'vwap_direction': vwap_direction,
+        'price_vs_vwap': price_vs_vwap,
+        'volume_imbalance': volume_imbalance,
+        'typical_price': typical_price
     }
 
 def calculate_vwap_standard_deviation(typical_price, volume, vwap):
@@ -2501,47 +2467,37 @@ reliance_output = {
 #### 1. Parquet Format (Recommended)
 
 ```python
-
 # High-performance columnar storage
-
 output_file = "data/historical/RELIANCE_complete_20250608.parquet"
 df.to_parquet(output_file, compression='snappy', index=True)
 
 # File size: ~491 KB for 491 trading days × 69 columns
-
 # Read speed: ~0.015 seconds for full dataset
-
 # Compression ratio: 76% vs CSV
-
+```
 
 #### 2. CSV Format (Human-readable)
 
 ```python
-
 # Standard comma-separated format
-
 output_file = "data/historical/RELIANCE_complete_20250608.csv"
 df.to_csv(output_file, index=True, float_format='%.4f')
 
 # File size: ~2.1 MB for same dataset
-
 # Read speed: ~0.087 seconds
-
 # Human-readable, compatible with Excel
-
+```
 
 #### 3. JSON Format (API-friendly)
 
 ```python
-
 # Structured JSON for API consumption
-
 output_file = "data/historical/RELIANCE_complete_20250608.json"
 df.to_json(output_file, orient='records', date_format='iso', indent=2)
 
 # Ideal for web APIs and real-time applications
-
 # Easy integration with JavaScript frontends
+```
 
 
 ### Data Quality Metrics
@@ -2594,42 +2550,30 @@ live_data_stream = {
     'timestamp': '2025-06-09T15:30:25.123Z',
     'symbol': 'RELIANCE.NS',
     'ltp': 1452.30,           # Last Traded Price
-
     'change': 3.50,           # Points change
-
     'change_pct': 0.24,       # Percentage change
-
     'volume': 9125486,        # Current volume
-
     'turnover': 13245678900,  # Turnover in ₹
-
     'bid': 1452.25,          # Best bid
-
     'ask': 1452.35,          # Best ask
-
     'bid_qty': 500,          # Bid quantity
-
     'ask_qty': 750,          # Ask quantity
-
     'signals': {
-
-'rsi_signal': 'neutral',
-'macd_signal': 'bearish_cross',
-'bb_signal': 'upper_resistance',
-'volume_signal': 'high',
-'overall_signal': 'hold'
-
+        'rsi_signal': 'neutral',
+        'macd_signal': 'bearish_cross',
+        'bb_signal': 'upper_resistance',
+        'volume_signal': 'high',
+        'overall_signal': 'hold'
     },
     'intraday_levels': {
-
-'pivot': 1448.80,
-'resistance_1': 1465.20,
-'support_1': 1432.40,
-'day_high': 1456.70,
-'day_low': 1445.50
-
+        'pivot': 1448.80,
+        'resistance_1': 1465.20,
+        'support_1': 1432.40,
+        'day_high': 1456.70,
+        'day_low': 1445.50
     }
 }
+```
 
 
 ---
@@ -2703,26 +2647,19 @@ def safe_indicator_calculation(func, data, **kwargs):
 
 min_periods = kwargs.get('min_periods', 20)
 if len(data) < min_periods:
-    return pd.Series(np.nan, index=data.index)
-
-# Execute calculation with error handling
-
-
-result = func(data, **kwargs)
-
-# Validate results
-
-
-if result.isna().all():
-    logger.warning(f"All NaN values in {func.__name__}")
-    return pd.Series(np.nan, index=data.index)
-
-return result
-
+    return pd.Series(np.nan, index=data.index)        # Execute calculation with error handling
+        result = func(data, **kwargs)
+        
+        # Validate results
+        if result.isna().all():
+            logger.warning(f"All NaN values in {func.__name__}")
+            return pd.Series(np.nan, index=data.index)
+        
+        return result
+        
     except Exception as e:
-
-logger.error(f"Error in {func.__name__}: {e}")
-return pd.Series(np.nan, index=data.index)
+        logger.error(f"Error in {func.__name__}: {e}")
+        return pd.Series(np.nan, index=data.index)
 
 #### 3. Memory Management Issues
 
@@ -2735,26 +2672,19 @@ def memory_efficient_processing(symbols, chunk_size=50):
     Process large datasets in chunks to avoid memory issues
     
     Strategies:
-
-- Chunk processing
-
-- Data type optimization
-
-- Garbage collection
-
-- Disk-based caching
+    - Chunk processing
+    - Data type optimization
+    - Garbage collection
+    - Disk-based caching
     """
     results = {}
     
     for i in range(0, len(symbols), chunk_size):
-
-chunk = symbols[i:i+chunk_size]
-
-# Process chunk
-
-
-chunk_results = process_symbol_chunk(chunk)
-results.update(chunk_results)
+        chunk = symbols[i:i+chunk_size]
+        
+        # Process chunk
+        chunk_results = process_symbol_chunk(chunk)
+        results.update(chunk_results)
 
 # Force garbage collection
 
@@ -3043,11 +2973,11 @@ live_data_stream = {
 
 ---
 
-## Troubleshooting and Edge Cases (2)
+## Troubleshooting and Edge Cases
 
-### Common Issues and Solutions (2)
+### Common Issues and Solutions
 
-#### 1. Data Download Failures (2)
+#### 1. Data Download Failures
 
 *Problem*: Network timeouts, API rate limits, corrupted data
 *Solution*:
@@ -3085,7 +3015,7 @@ except Exception as e:
     raise Exception(f"All data sources failed for {symbol}")
 
 
-#### 2. Indicator Calculation Errors (2)
+#### 2. Indicator Calculation Errors
 
 *Problem*: Division by zero, insufficient data, numerical instability
 *Solution*:
