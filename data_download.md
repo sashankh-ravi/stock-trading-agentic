@@ -49,6 +49,68 @@ The pipeline demonstrates exceptional efficiency, processing two years of comple
 
 The `download_nifty500_data.py` script orchestrates the entire data collection process. It leverages several key Python libraries and a structured configuration.
 
+### 2.1. Key Libraries & Their Roles
+
+- **`yfinance`**: The primary workhorse for fetching data from Yahoo Finance. It provides access to historical stock prices, trading volumes, company fundamentals (income statements, balance sheets, cash flow), news headlines, option chain data, and institutional holder information.
+
+- *Significance*: Offers a free and relatively comprehensive source for global financial data, including Indian equities with the `.NS` suffix.
+
+- **`pandas`**: Essential for data manipulation and analysis. All fetched data is typically loaded into pandas DataFrames for cleaning, transformation, calculation of indicators, and storage.
+
+- *Significance*: Provides powerful and flexible data structures (DataFrame, Series) that are ideal for time-series and tabular financial data.
+
+- **`numpy`**: Used for numerical operations, especially array manipulations and mathematical functions that underpin many financial calculations.
+
+- *Significance*: Offers efficient numerical computation, often used by pandas and other libraries under the hood.
+
+- **`talib` (Ta-Lib)**: A widely used library for technical analysis, specifically for calculating candlestick pattern recognitions (e.g., Doji, Hammer, Engulfing patterns). The script uses functions like `talib.CDLDOJI()`.
+
+- *Significance*: Provides pre-built, optimized functions for many common technical indicators and patterns, saving development time and ensuring correctness.
+
+- **`requests`**: For making HTTP requests to fetch data from web sources, such as the Nifty 500 constituents list from the NSE India website.
+
+- *Significance*: A standard library for interacting with web APIs and websites.
+
+- **`concurrent.futures`**: Enables parallel execution of tasks, particularly useful for downloading data for multiple stocks simultaneously, significantly speeding up the overall process. `ThreadPoolExecutor` is used.
+
+- *Significance*: Improves performance by leveraging multi-threading for I/O-bound tasks like data downloading.
+
+- **`logging`**: Implements a logging mechanism to track the script's execution, record informational messages, warnings, and errors. This is crucial for monitoring the pipeline's health and debugging issues.
+
+- *Significance*: Provides a structured way to get feedback from the running application.
+
+- **`pathlib`, `json`, `datetime`, `os`, `time`, `re`, `math`, `functools.lru_cache`**: These are standard Python utility modules used for file path manipulation, working with JSON data (e.g., for caching), date/time operations, interacting with the operating system, adding delays (rate limiting), regular expressions, mathematical calculations, and caching function results for performance, respectively.
+
+### 2.2. Configuration
+
+- **Logging Setup**:
+
+```python
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+```
+
+This configures application-wide logging to output messages with a timestamp, log level, and the message itself. `INFO` level provides a good balance of detail.
+
+- **Global Market Definitions**:
+
+  - `INDIAN_SECTOR_INDICES`: A dictionary mapping Yahoo Finance tickers for Indian sector indices (e.g., `^CNXBANK` for Nifty Bank) to their names.
+
+    *Purpose*: Used for sector-specific relative strength analysis and benchmarking.
+
+  - `GLOBAL_INDICES`: Includes major global stock market indices (e.g., S&P 500 `^GSPC`, FTSE 100 `^FTSE`).
+
+    *Purpose*: Essential for intermarket correlation analysis to understand how Indian markets are influenced by or move with global trends.
+
+  - `COMMODITIES_BONDS`: Lists tickers for key commodities (e.g., Gold `GC=F`, Crude Oil `CL=F`) and bond yields (e.g., US 10-Year Treasury `^TNX`).
+
+    *Purpose*: Also for intermarket analysis, as these assets can significantly impact equity markets and reflect economic conditions. For example, rising oil prices can affect inflation and specific sectors.
+
+![System Architecture](docs/images/system_architecture.png)
+
 ![System Architecture](docs/images/system_architecture.png)
 
 ### 2.1. Key Libraries & Their Roles
@@ -1000,6 +1062,286 @@ The pipeline's modular design allows for easy extension and customization, while
 ![Strategy Combination](docs/images/strategy_combination.png)
 
 For additional technical details and implementation guides, refer to the accompanying documentation in the `docs/` directory.
+
+---
+
+## 9. Real-Time Data Integration
+
+### 9.1. Live Data Feeds
+
+The pipeline supports real-time data integration through multiple sources:
+
+1. **WebSocket Connections**
+
+```python
+async def connect_live_feed(symbol, callback):
+    """
+    Establish WebSocket connection for real-time price updates
+    
+    Parameters:
+    - symbol: Stock symbol (e.g., 'RELIANCE.NS')
+    - callback: Function to handle incoming data
+    
+    Returns:
+    - WebSocket connection object
+    """
+    uri = f"wss://stream.data.com/v1/market/nse/{symbol}"
+    async with websockets.connect(uri) as websocket:
+        while True:
+            data = await websocket.recv()
+            await callback(json.loads(data))
+```
+
+2. **REST API Polling**
+
+```python
+def poll_price_updates(symbol, interval=1):
+    """
+    Poll REST API for price updates at specified interval
+    
+    Parameters:
+    - symbol: Stock symbol
+    - interval: Polling interval in seconds
+    
+    Returns:
+    - Latest price data
+    """
+    endpoint = f"https://api.data.com/v1/quotes/{symbol}"
+    while True:
+        response = requests.get(endpoint)
+        if response.status_code == 200:
+            process_price_update(response.json())
+        time.sleep(interval)
+```
+
+### 9.2. Data Stream Processing
+
+The pipeline implements stream processing for real-time data:
+
+```python
+class DataStreamProcessor:
+    def __init__(self):
+        self.price_buffer = deque(maxlen=100)  # Rolling window
+        self.indicators = {}
+    
+    def update(self, tick_data):
+        """Process incoming tick data"""
+        self.price_buffer.append(tick_data['price'])
+        self._update_indicators()
+    
+    def _update_indicators(self):
+        """Update technical indicators with new data"""
+        if len(self.price_buffer) >= 20:
+            self.indicators['sma_20'] = np.mean(list(self.price_buffer)[-20:])
+            # Update other indicators...
+```
+
+## 10. Pipeline Monitoring & Alerting
+
+### 10.1. Health Checks
+
+The pipeline implements comprehensive health monitoring:
+
+```python
+class PipelineMonitor:
+    def __init__(self):
+        self.metrics = {
+            'data_freshness': {},
+            'error_rates': {},
+            'processing_times': {}
+        }
+    
+    def check_health(self):
+        """
+        Perform health check on pipeline components
+        
+        Returns:
+        - dict: Health status of each component
+        """
+        status = {
+            'data_feed': self._check_data_feed(),
+            'processing': self._check_processing(),
+            'storage': self._check_storage()
+        }
+        return status
+```
+
+### 10.2. Performance Metrics
+
+Key metrics tracked in real-time:
+
+1. **Data Quality Metrics**
+   - Latency
+   - Missing data points
+   - Data accuracy (vs. reference source)
+
+2. **System Performance**
+   - Processing time per symbol
+   - Memory usage
+   - CPU utilization
+
+3. **Error Rates**
+   - Download failures
+   - Processing errors
+   - Data validation failures
+
+### 10.3. Alerting System
+
+```python
+class AlertingSystem:
+    def __init__(self):
+        self.alert_channels = {
+            'critical': ['slack', 'email', 'sms'],
+            'warning': ['slack'],
+            'info': ['slack']
+        }
+    
+    async def send_alert(self, level, message):
+        """
+        Send alert through configured channels
+        
+        Parameters:
+        - level: Alert severity level
+        - message: Alert message
+        """
+        channels = self.alert_channels.get(level, ['slack'])
+        for channel in channels:
+            await self._send_to_channel(channel, message)
+```
+
+## 11. Compliance & Audit
+
+### 11.1. Data Retention
+
+The pipeline implements configurable data retention policies:
+
+```python
+class DataRetention:
+    def __init__(self, config):
+        self.retention_periods = {
+            'tick_data': '1 week',
+            'minute_data': '1 month',
+            'daily_data': '10 years',
+            'derived_indicators': '5 years'
+        }
+    
+    def cleanup_old_data(self):
+        """
+        Remove data older than retention period
+        """
+        for data_type, period in self.retention_periods.items():
+            self._remove_expired_data(data_type, period)
+```
+
+### 11.2. Audit Trail
+
+All data operations are logged for audit purposes:
+
+```python
+class AuditLogger:
+    def __init__(self):
+        self.audit_fields = [
+            'timestamp',
+            'operation',
+            'user',
+            'data_affected',
+            'source_ip'
+        ]
+    
+    def log_operation(self, operation_data):
+        """
+        Log operation details to audit trail
+        
+        Parameters:
+        - operation_data: Details of the operation
+        """
+        audit_entry = self._format_audit_entry(operation_data)
+        self._write_to_audit_log(audit_entry)
+```
+
+## 12. Future Enhancements
+
+### 12.1. Planned Features
+
+1. **Machine Learning Integration**
+   - Anomaly detection for data quality
+   - Automated feature engineering
+   - Predictive analytics for system resource usage
+
+2. **Advanced Analytics**
+   - Real-time correlation analysis
+   - Cross-asset analysis
+   - Alternative data integration
+
+3. **Infrastructure**
+   - Multi-region deployment
+   - Advanced caching strategies
+   - Dynamic scaling based on market conditions
+
+### 12.2. Research Areas
+
+1. **Market Microstructure**
+   - Order book analysis
+   - Trade impact measurement
+   - Liquidity prediction
+
+2. **Alternative Data**
+   - Satellite imagery
+   - Social media sentiment
+   - Weather data integration
+
+---
+
+## Appendix A: Configuration Reference
+
+### A.1. Sample Configuration
+
+```yaml
+pipeline:
+  data_sources:
+    primary: 'yahoo_finance'
+    secondary: 'nse_direct'
+    fallback: 'local_cache'
+  
+  processing:
+    batch_size: 50
+    max_retries: 3
+    timeout: 30
+    
+  monitoring:
+    health_check_interval: 300
+    alert_thresholds:
+      latency_ms: 1000
+      error_rate: 0.01
+      
+  retention:
+    tick_data: '7d'
+    minute_data: '30d'
+    daily_data: '10y'
+```
+
+### A.2. Environment Variables
+
+Required environment variables for pipeline operation:
+
+```bash
+# API Credentials
+export NSE_API_KEY="your_api_key"
+export NSE_API_SECRET="your_api_secret"
+
+# Database Configuration
+export DB_HOST="localhost"
+export DB_PORT="5432"
+export DB_NAME="market_data"
+
+# Monitoring Configuration
+export ALERT_WEBHOOK="https://hooks.slack.com/services/..."
+export LOG_LEVEL="INFO"
+```
+
+---
+
+For detailed implementation examples and API documentation, refer to the comprehensive guide in the `docs/` directory.
 
 ---
 
