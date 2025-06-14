@@ -121,8 +121,13 @@ def test_technical_indicators(data: pd.DataFrame, symbol: str):
     
     logger.info(f"Added {len(added_indicators)} technical indicators: {added_indicators}")
     
-    # Test candlestick patterns
-    candlestick_patterns = [col for col in enhanced_data.columns if col in ['Doji', 'Engulfing', 'Hammer', 'Shooting_Star', 'Morning_Star', 'Evening_Star']]
+    # Test candlestick patterns - now checking for 20 comprehensive patterns
+    candlestick_patterns = [col for col in enhanced_data.columns if col in [
+        'Doji', 'Engulfing', 'Hammer', 'Hanging_Man', 'Shooting_Star', 'Inverted_Hammer',
+        'Morning_Star', 'Evening_Star', 'Doji_Star', 'Harami', 'Harami_Cross',
+        'Piercing', 'Dark_Cloud', 'Three_White_Soldiers', 'Three_Black_Crows',
+        'Spinning_Top', 'Marubozu', 'Dragonfly_Doji', 'Gravestone_Doji', 'Abandoned_Baby'
+    ]]
     logger.info(f"Detected {len(candlestick_patterns)} candlestick pattern columns: {candlestick_patterns}")
     
     # Count pattern occurrences in recent data

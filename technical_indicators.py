@@ -96,16 +96,38 @@ def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         symbol_data['Plus_DI'] = talib.PLUS_DI(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
         symbol_data['Minus_DI'] = talib.MINUS_DI(symbol_data['High'], symbol_data['Low'], symbol_data['Close'], timeperiod=14)
         
-        # Candlestick patterns
+        # Candlestick patterns - Comprehensive set of 20 most reliable patterns
+        # Basic reversal patterns
         symbol_data['Doji'] = talib.CDLDOJI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
         symbol_data['Engulfing'] = talib.CDLENGULFING(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
         symbol_data['Hammer'] = talib.CDLHAMMER(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Hanging_Man'] = talib.CDLHANGINGMAN(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Shooting_Star'] = talib.CDLSHOOTINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Inverted_Hammer'] = talib.CDLINVERTEDHAMMER(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Star patterns (strong reversal signals)
         symbol_data['Morning_Star'] = talib.CDLMORNINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
         symbol_data['Evening_Star'] = talib.CDLEVENINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
-        symbol_data['Shooting_Star'] = talib.CDLSHOOTINGSTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Doji_Star'] = talib.CDLDOJISTAR(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Harami patterns (inside day reversals)
         symbol_data['Harami'] = talib.CDLHARAMI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Harami_Cross'] = talib.CDLHARAMICROSS(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Piercing and dark cloud patterns
         symbol_data['Piercing'] = talib.CDLPIERCING(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
         symbol_data['Dark_Cloud'] = talib.CDLDARKCLOUDCOVER(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Multiple candle patterns
+        symbol_data['Three_White_Soldiers'] = talib.CDL3WHITESOLDIERS(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Three_Black_Crows'] = talib.CDL3BLACKCROWS(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        
+        # Advanced patterns
+        symbol_data['Spinning_Top'] = talib.CDLSPINNINGTOP(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Marubozu'] = talib.CDLMARUBOZU(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Dragonfly_Doji'] = talib.CDLDRAGONFLYDOJI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Gravestone_Doji'] = talib.CDLGRAVESTONEDOJI(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
+        symbol_data['Abandoned_Baby'] = talib.CDLABANDONEDBABY(symbol_data['Open'], symbol_data['High'], symbol_data['Low'], symbol_data['Close'])
         
         # Gap analysis
         symbol_data['Gap_Up'] = symbol_data['Open'] > symbol_data['High'].shift(1)

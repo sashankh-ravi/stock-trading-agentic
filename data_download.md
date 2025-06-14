@@ -9,7 +9,7 @@ Welcome to the **most comprehensive, battle-tested, production-ready stock tradi
 - **⚡ INSANE Performance**: Processes 492 days of RELIANCE.NS data in **1.67 seconds** (JUST TESTED LIVE!)
 - **🎪 96.2% Data Quality Score**: Institutional-standard data integrity that beats Bloomberg
 - **📊 70+ Advanced Features**: From basic OHLCV to sophisticated regime detection
-- **🔬 63 Technical Indicators**: Complete arsenal including 6 candlestick patterns  
+- **🔬 63 Technical Indicators**: Complete arsenal including **20 candlestick patterns**  
 - **🧠 AI-Powered Market Intelligence**: Advanced regime detection with 41% confidence scoring
 - **💰 Real Money Impact**: System designed for live trading with actual P&L optimization
 - **🏆 LEGENDARY Status**: The most documented, most tested, most comprehensive system on GitHub
