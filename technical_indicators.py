@@ -347,7 +347,13 @@ class TechnicalIndicators:
         df['KC_UPPER'] = df['KC_MIDDLE'] + (2 * atr)
         df['KC_LOWER'] = df['KC_MIDDLE'] - (2 * atr)
         
-        # 5. Custom Composite Indicators
+        # 5. Advanced Adaptive Indicators
+        df['FRAMA'] = self._calculate_frama(close, 16)  # Fractal Adaptive Moving Average
+        df['KAMA'] = self._calculate_kama(close, 10, 2, 30)  # Kaufman Adaptive Moving Average  
+        df['ZLEMA'] = self._calculate_zlema(close, 21)  # Zero Lag Exponential Moving Average
+        df['VIDYA'] = self._calculate_vidya(close, 14)  # Variable Index Dynamic Average
+        
+        # 6. Custom Composite Indicators
         df['TREND_STRENGTH'] = self._calculate_trend_strength(df)
         df['VOL_REGIME'] = self._calculate_volatility_regime(df)
         df['MOMENTUM_QUALITY'] = self._calculate_momentum_quality(df)

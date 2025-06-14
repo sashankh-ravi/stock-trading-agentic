@@ -395,7 +395,7 @@ def run_comprehensive_test():
     logger.info(f"✓ News articles: {results['news_sentiment']['article_count']}")
     logger.info(f"✓ Relative strength: {results['relative_strength']['rs_cumulative']:.4f}")
     logger.info(f"✓ Market regime: {results['market_regime']['regime_state']}")
-    logger.info(f"✓ Data quality score: {100 - (results['data_quality']['missing_values']/results['data_quality']['total_records']*100):.1f}%")
+    logger.info(f"✓ Data quality score: {100 - (results['data_quality']['missing_values']/(results['data_quality']['total_records']*len(enhanced_data.columns))*100):.1f}%")
     
     # Save results
     output_dir = Path("data/test_results")
@@ -410,5 +410,4 @@ def run_comprehensive_test():
 
 logger.info("Starting Comprehensive Single Stock Test...")
 results = run_comprehensive_test()
-logger.info("✓ Comprehensive test completed successfully!")
 logger.info("✓ Comprehensive test completed successfully!")
