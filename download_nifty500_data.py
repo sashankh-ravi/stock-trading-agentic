@@ -102,9 +102,6 @@ from dataclasses import dataclass
 import yfinance as yf
 YFINANCE_AVAILABLE = True
 
-from download_stock_data import download_stock_data
-DOWNLOAD_MODULE_AVAILABLE = True
-
 # Web scraping imports
 from bs4 import BeautifulSoup
 BS4_AVAILABLE = True
@@ -2808,3 +2805,250 @@ def _get_analyst_sentiment(ticker) -> float:
         return sentiment
     
     return 50.0
+
+# =============================================================================
+# MAIN DATA DOWNLOAD FUNCTIONS (MISSING IMPLEMENTATIONS)
+# =============================================================================
+
+def download_market_data(symbol: str, period: str = "2y") -> pd.DataFrame:
+    """
+    Download OHLCV market data for a single stock
+    
+    Args:
+        symbol: Stock symbol (e.g., 'RELIANCE.NS')
+        period: Time period ('1y', '2y', '5y', etc.)
+        
+    Returns:
+        DataFrame with OHLCV data
+    """
+    logger.info(f"Downloading market data for {symbol} - period: {period}")
+    
+    ticker = yf.Ticker(symbol)
+    data = ticker.history(period=period)
+    
+    if data.empty:
+        logger.error(f"No data found for {symbol}")
+        return pd.DataFrame()
+    
+    # Add symbol column
+    data['symbol'] = symbol
+    
+    # Reset index to make Date a column
+    data = data.reset_index()
+    
+    logger.info(f"Downloaded {len(data)} days of data for {symbol}")
+    return data
+
+def download_nifty500_data(symbols: List[str] = None, period: str = "2y") -> Dict[str, Any]:
+    """
+    Download comprehensive data for Nifty 500 stocks
+    
+    Args:
+        symbols: List of stock symbols. If None, uses a default sample
+        period: Time period for historical data
+        
+    Returns:
+        Dictionary containing analysis results for each stock
+    """
+    if symbols is None:
+        symbols = [
+            "RELIANCE.NS", "HDFCBANK.NS", "TCS.NS", "INFY.NS", "HINDUNILVR.NS",
+            "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "ASIANPAINT.NS"
+        ]
+    
+    results = {}
+    logger.info(f"Starting download for {len(symbols)} symbols")
+    
+    for symbol in symbols:
+        logger.info(f"Processing {symbol}...")
+        
+        # Download basic market data
+        market_data = download_market_data(symbol, period)
+        if market_data.empty:
+            logger.warning(f"Skipping {symbol} - no market data")
+            continue
+        
+        # Get fundamental data
+        fundamental_data = get_fundamental_data(symbol)
+        
+        # Calculate technical indicators
+        from technical_indicators import add_technical_indicators
+        market_data = add_technical_indicators(market_data)
+        
+        # Calculate risk metrics
+        risk_metrics = calculate_comprehensive_risk_metrics(market_data, symbol)
+        
+        # Get ESG metrics
+        esg_metrics = calculate_esg_metrics(symbol, fundamental_data)
+        
+        # Get alternative data
+        management_quality = collect_management_quality_data(symbol)
+        social_sentiment = collect_social_sentiment_data(symbol)
+        supply_chain = collect_supply_chain_data(symbol)
+        
+        # Compile results
+        results[symbol] = {
+            'market_data': market_data,
+            'fundamental_data': fundamental_data,
+            'risk_metrics': risk_metrics,
+            'esg_metrics': esg_metrics,
+            'management_quality': management_quality,
+            'social_sentiment': social_sentiment,
+            'supply_chain': supply_chain,
+            'data_quality_score': len(market_data) / (252 * 2) * 100,  # Rough completeness score
+            'last_updated': datetime.datetime.now()
+        }
+        
+        logger.info(f"Completed analysis for {symbol}")
+    
+    logger.info(f"Download complete. Processed {len(results)} stocks successfully.")
+    return results
+
+def analyze_single_stock(symbol: str, period: str = "2y") -> Dict[str, Any]:
+    """
+    Comprehensive analysis of a single stock
+    
+    Args:
+        symbol: Stock symbol to analyze
+        period: Time period for analysis
+        
+    Returns:
+        Complete analysis results
+    """
+    logger.info(f"Starting comprehensive analysis for {symbol}")
+    
+    # Download market data
+    market_data = download_market_data(symbol, period)
+    if market_data.empty:
+        return {"error": f"No market data available for {symbol}"}
+    
+    # Add technical indicators
+    from technical_indicators import add_technical_indicators
+    market_data = add_technical_indicators(market_data)
+    
+    # Get all analysis components
+    fundamental_data = get_fundamental_data(symbol)
+    risk_metrics = calculate_comprehensive_risk_metrics(market_data, symbol)
+    esg_metrics = calculate_esg_metrics(symbol, fundamental_data)
+    management_quality = collect_management_quality_data(symbol)
+    social_sentiment = collect_social_sentiment_data(symbol)
+    supply_chain = collect_supply_chain_data(symbol)
+    
+    # Market regime analysis
+    from market_regime import MarketRegimeAnalyzer
+    regime_analyzer = MarketRegimeAnalyzer()
+    market_regime = regime_analyzer.analyze(market_data)
+    
+    # Generate summary statistics
+    current_price = market_data['Close'].iloc[-1]
+    total_return = (current_price / market_data['Close'].iloc[0] - 1) * 100
+    volatility = market_data['Close'].pct_change().std() * np.sqrt(252) * 100
+    
+    # Compile comprehensive results
+    analysis_results = {
+        'symbol': symbol,
+        'analysis_date': datetime.datetime.now(),
+        'period': period,
+        'data_points': len(market_data),
+        
+        # Market data and indicators
+        'market_data': market_data,
+        'current_price': current_price,
+        'total_return_pct': total_return,
+        'volatility_pct': volatility,
+        
+        # Fundamental analysis
+        'fundamental_data': fundamental_data,
+        'quality_score': fundamental_data.get('quality_score', 0),
+        
+        # Risk analysis
+        'risk_metrics': risk_metrics,
+        'var_95': risk_metrics.var_95,
+        'expected_shortfall_95': risk_metrics.expected_shortfall_95,
+        
+        # ESG and alternative data
+        'esg_metrics': esg_metrics,
+        'esg_score': esg_metrics.environmental_score + esg_metrics.social_score + esg_metrics.governance_score,
+        'management_quality': management_quality,
+        'social_sentiment': social_sentiment,
+        'supply_chain': supply_chain,
+        
+        # Market regime
+        'market_regime': {
+            'trend': market_regime.trend,
+            'volatility': market_regime.volatility,
+            'volume': market_regime.volume,
+            'momentum': market_regime.momentum,
+            'confidence': market_regime.confidence
+        },
+        
+        # Data quality
+        'data_quality_score': len(market_data) / (252 * float(period[0])) * 100
+    }
+    
+    logger.info(f"Analysis complete for {symbol}")
+    return analysis_results
+
+# =============================================================================
+# MAIN EXECUTION ENTRY POINT
+# =============================================================================
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Nifty 500 Stock Data Download and Analysis")
+    parser.add_argument("--symbol", type=str, help="Single symbol to analyze (e.g., RELIANCE.NS)")
+    parser.add_argument("--symbols", nargs="+", help="Multiple symbols to analyze")
+    parser.add_argument("--period", type=str, default="2y", help="Time period (1y, 2y, 5y)")
+    parser.add_argument("--analysis", type=str, choices=["basic", "full"], default="full", 
+                       help="Analysis type")
+    parser.add_argument("--output", type=str, help="Output file path")
+    
+    args = parser.parse_args()
+    
+    # Determine what to analyze
+    if args.symbol:
+        logger.info(f"Analyzing single stock: {args.symbol}")
+        results = analyze_single_stock(args.symbol, args.period)
+        
+        # Print summary
+        print(f"\n🔥 {args.symbol} Analysis Results:")
+        print(f"📅 Data Period: {len(results.get('market_data', []))} trading days processed")
+        print(f"📊 Current Price: ₹{results.get('current_price', 0):.2f}")
+        print(f"📈 Total Return: {results.get('total_return_pct', 0):.2f}%")
+        print(f"⚡ Volatility: {results.get('volatility_pct', 0):.2f}%")
+        print(f"🎯 Quality Score: {results.get('quality_score', 0):.1f}/100")
+        print(f"🛡️ VaR (95%): {results.get('var_95', 0):.2f}%")
+        
+        if 'market_regime' in results:
+            regime = results['market_regime']
+            print(f"🧠 Market Regime: {regime.get('trend', 'Unknown')} trend, {regime.get('volatility', 'Unknown')} volatility")
+            print(f"📊 Regime Confidence: {regime.get('confidence', 0)*100:.1f}%")
+        
+    elif args.symbols:
+        logger.info(f"Analyzing multiple stocks: {args.symbols}")
+        results = download_nifty500_data(args.symbols, args.period)
+        
+        # Print summary
+        print(f"\n🔥 Multi-Stock Analysis Results:")
+        print(f"📊 Stocks Processed: {len(results)}")
+        for symbol, data in results.items():
+            quality_score = data.get('data_quality_score', 0)
+            print(f"  {symbol}: Quality {quality_score:.1f}%")
+    
+    else:
+        # Default: analyze sample stocks
+        logger.info("Running default analysis on sample stocks")
+        sample_symbols = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS"]
+        results = download_nifty500_data(sample_symbols, args.period)
+        
+        print(f"\n🔥 Sample Analysis Complete:")
+        print(f"📊 Processed {len(results)} stocks")
+        print("✅ System working correctly!")
+    
+    # Save results if output specified
+    if args.output and results:
+        import pickle
+        with open(args.output, 'wb') as f:
+            pickle.dump(results, f)
+        logger.info(f"Results saved to {args.output}")

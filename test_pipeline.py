@@ -53,15 +53,13 @@ def select_test_symbol():
     return symbol
 
 def test_basic_data_download(symbol: str):
-    """Test 1: Basic stock data download and validation"""
+    """Test 1: Basic stock data download and validation using main download function"""
     logger.info(f"=== TEST 1: Basic Data Download for {symbol} ===")
     
-    # Download 2 years of data
-    end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=730)
+    # Use the actual download function from our module
+    from download_nifty500_data import download_market_data
     
-    ticker = yf.Ticker(symbol)
-    data = ticker.history(start=start_date, end=end_date)
+    data = download_market_data(symbol, period="2y")
     
     # Validate data
     assert not data.empty, f"No data downloaded for {symbol}"
@@ -91,13 +89,8 @@ def test_technical_indicators(data: pd.DataFrame, symbol: str):
     # Import our technical indicators module
     from technical_indicators import add_technical_indicators
     
-    # Prepare data for technical indicators function
-    df_with_symbol = data.copy()
-    df_with_symbol['symbol'] = symbol
-    df_with_symbol = df_with_symbol.reset_index()
-    
-    # Add technical indicators
-    enhanced_data = add_technical_indicators(df_with_symbol)
+    # Add technical indicators - data already has symbol column from download_market_data
+    enhanced_data = add_technical_indicators(data)
     
     logger.info(f"Data shape after adding indicators: {enhanced_data.shape}")
     logger.info(f"Columns: {list(enhanced_data.columns)}")
@@ -413,6 +406,7 @@ def run_comprehensive_test():
     
     return results
 
-logger.info("Starting Comprehensive Single Stock Test...")
-results = run_comprehensive_test()
-logger.info("✓ Comprehensive test completed successfully!")
+if __name__ == "__main__":
+    logger.info("Starting Comprehensive Single Stock Test...")
+    results = run_comprehensive_test()
+    logger.info("✓ Comprehensive test completed successfully!")
