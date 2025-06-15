@@ -1,4 +1,4 @@
-# 📊 **Comprehensive Technical Documentation: Stock Market Data Download Pipeline**
+# 📊 **Part 1: Introduction - Stock Market Data Download Pipeline**
 
 ## **Executive Summary**
 
@@ -344,6 +344,42 @@ def analyze_single_stock(symbol: str, period: str = "2y") -> Dict[str, Any]:
 
 **Purpose**: Extracts and processes 40+ fundamental financial metrics from Yahoo Finance API, calculating composite quality scores and derived financial ratios.
 
+**📅 Data Update Frequency & Temporal Granularity**:
+
+**Real-Time Components** (Updated continuously during market hours):
+- **Stock Price-Based Ratios**: P/E, P/B, Market Cap, EV ratios
+- **Calculation**: Current stock price × Latest financial statement data
+- **Storage**: Single current value, updated with each API call
+
+**Quarterly Components** (Updated when companies report earnings):
+- **Financial Statement Metrics**: Revenue, Net Income, Balance Sheet items
+- **Release Schedule**: Q1 (April-May), Q2 (July-Aug), Q3 (Oct-Nov), Q4 (Jan-Feb)
+- **Calculation**: TTM (Trailing Twelve Months) for income statement, latest quarter for balance sheet
+- **Storage**: One value per metric representing most recent 12-month period
+
+**Annual Components** (Updated once per year):
+- **Growth Rates**: Revenue growth, earnings growth, EBITDA growth
+- **Calculation**: Compares current TTM to previous TTM annual data
+- **Storage**: Single annual growth percentage
+
+**Mixed Frequency Components**:
+- **Efficiency Ratios**: Asset turnover, receivables turnover, inventory turnover
+- **Calculation**: TTM revenue/expenses ÷ Current quarter balance sheet items
+- **Update**: Quarterly balance sheet + TTM income statement data
+
+**Data Persistence Strategy**:
+```python
+# Each metric stored with timestamp and calculation basis
+fundamental_data = {
+    'pe_ratio': 27.93,           # Real-time: Current Price ÷ TTM EPS
+    'profit_margin': 7.22,       # Quarterly: TTM Net Income ÷ TTM Revenue  
+    'revenue_growth': 10.50,     # Annual: Current TTM vs Previous TTM
+    'current_ratio': 1.10,       # Quarterly: Q4 Current Assets ÷ Q4 Current Liabilities
+    'timestamp': '2025-06-15',   # When calculation was performed
+    'data_basis': 'Q4_2024'      # Which financial period the data represents
+}
+```
+
 **Function Implementation**:
 ```python
 def get_fundamental_data(symbol: str) -> Dict[str, Any]:
@@ -508,20 +544,20 @@ def _calculate_quality_score(data: Dict[str, Any]) -> float:
 
 **Fundamental Data Categories**:
 
-1. **Valuation Metrics (10)**:
+1. **Valuation Metrics (10)** - *Updated Real-time (Stock price) + Quarterly (Fundamentals)*:
    - P/E Ratio, P/B Ratio, PEG Ratio
    - EV/EBITDA, EV/Revenue, Price-to-Sales
    - Market Cap, Enterprise Value, Forward P/E, EV/FCF
 
-2. **Profitability Metrics (8)**:
+2. **Profitability Metrics (8)** - *Updated Quarterly (TTM basis)*:
    - Profit Margin, Operating Margin, Gross Margin
    - EBITDA Margin, ROE, ROA, ROIC, FCF Margin
 
-3. **Financial Health Metrics (7)**:
+3. **Financial Health Metrics (7)** - *Updated Quarterly (Latest quarter basis)*:
    - Debt-to-Equity, Debt-to-Assets, Current Ratio
    - Quick Ratio, Interest Coverage, Cash Ratio
 
-4. **Growth Metrics (4)**:
+4. **Growth Metrics (4)** - *Updated Annually (YoY comparison)*:
    - Revenue Growth, Earnings Growth, EBITDA Growth, FCF Growth
 
 5. **Efficiency Metrics (3)**:

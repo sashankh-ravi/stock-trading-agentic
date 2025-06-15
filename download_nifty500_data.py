@@ -801,8 +801,8 @@ def get_fundamental_data(symbol: str) -> Dict[str, Any]:
     revenue = info.get('totalRevenue')
     if revenue and revenue > 0:
         fundamental_data['asset_turnover'] = get_safe_ratio(revenue, total_assets)
-        fundamental_data['receivables_turnover'] = get_safe_ratio(revenue, info.get('netReceivables', 0))
-        fundamental_data['inventory_turnover'] = get_safe_ratio(info.get('costOfRevenue', 0), info.get('inventory', 0))
+        fundamental_data['receivables_turnover'] = get_safe_ratio(revenue, info.get('netReceivables'))
+        fundamental_data['inventory_turnover'] = get_safe_ratio(info.get('costOfRevenue'), info.get('inventory'))
     
     # 6. Dividend Metrics
     fundamental_data['dividend_yield'] = get_percentage(info.get('dividendYield'))
